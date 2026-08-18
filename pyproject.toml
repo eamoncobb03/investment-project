@@ -1,0 +1,16 @@
+[project]
+name = "investment-planner-api"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = ["fastapi==0.128.8"]
+
+# Only needed to run the API locally. Vercel supplies its own server, so
+# this stays out of the deployed dependencies.
+[project.optional-dependencies]
+dev = ["uvicorn==0.39.0"]
+
+[tool.vercel]
+# Vercel's zero-config FastAPI detection only looks at the project root or
+# inside src/ or app/. This app lives in backend/, so it needs to be pointed
+# at explicitly rather than relying on auto-detection.
+entrypoint = "backend.main:app"

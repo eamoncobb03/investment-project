@@ -1,0 +1,22 @@
+# Node / Frontend
+node_modules/
+dist/
+.env
+.env.local
+
+# Python / Backend
+venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local editor and tooling config, not part of the project
+.claude/
+.codex/
+.mcp.json
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
