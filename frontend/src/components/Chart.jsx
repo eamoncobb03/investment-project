@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { moneyCompact } from '../lib/format'
+import { moneyCompact } from '@/lib/format'
 
 const W = 640
 const H = 300
@@ -84,8 +84,8 @@ export default function Chart({ rows, activeIndex, onScrub }) {
     >
       <defs>
         <linearGradient id="fillTotal" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.28" />
-          <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.04" />
+          <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.28" />
+          <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.04" />
         </linearGradient>
       </defs>
 

@@ -10,7 +10,9 @@ Live at [eamoncobb.com/investmentplanner](https://eamoncobb.com/investmentplanne
 ## How it works
 
 A React frontend talks to a FastAPI backend that runs the month by month
-compounding and returns a year by year breakdown.
+compounding and returns a year by year breakdown. The interface is built on
+shadcn/ui over Tailwind, themed to this project's own paper and green palette
+rather than the defaults.
 
 The chart is hand written SVG rather than a charting library, which keeps the
 bundle small and makes the scrubbing behaviour easy to control. It scales
@@ -27,6 +29,7 @@ sequence number, so a slow earlier response cannot overwrite a newer one.
 backend/main.py          FastAPI app: validation and the projection endpoint
 frontend/src/App.jsx     Page composition and the draft vs applied state
 frontend/src/components  Chart (SVG) and Field (numeric input + slider)
+frontend/src/components/ui  Vendored shadcn primitives
 frontend/src/lib         API client, formatting, and the two hooks
 ```
 
