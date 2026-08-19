@@ -136,6 +136,31 @@ def calculate_growth(data: InvestmentQuery):
 #    is a production build artifact this file otherwise has no reason to
 #    expect, and StaticFiles raises at import time if the directory is
 #    missing, which would break `uvicorn main:app` for local development.
+#    Cache headers are set here rather than left at the default, because the
+#    default treats the HTML and the hashed assets the same and both end up
+#    revalidated on every load.
+#
+#    Vite fingerprints every asset filename, so a given /assets/... URL can
+#    never change content: those are safe to keep for a year and never ask
+#    about again. index.html is the opposite. It is the file that names which
+#    asset hashes to fetch, so a stale copy points at filenames a deploy has
+#    already replaced, every one of them 404s, and the page renders blank with
+#    no script alive to explain why. no-store keeps a browser from ever
+#    answering that request from its own cache.
+ONE_YEAR = 60 * 60 * 24 * 365
+
+
+class FrontendFiles(StaticFiles):
+    def file_response(self, full_path, stat_result, scope, status_code=200):
+        response = super().file_response(full_path, stat_result, scope, status_code)
+        path = scope.get("path", "")
+        if path.startswith("/assets/"):
+            response.headers["Cache-Control"] = f"public, max-age={ONE_YEAR}, immutable"
+        else:
+            response.headers["Cache-Control"] = "no-store, must-revalidate"
+        return response
+
+
 FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 if FRONTEND_DIST.is_dir():
-    app.mount("/", StaticFiles(directory=str(FRONTEND_DIST), html=True), name="frontend")
+    app.mount("/", FrontendFiles(directory=str(FRONTEND_DIST), html=True), name="frontend")

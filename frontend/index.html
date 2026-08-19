@@ -5,6 +5,88 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Investment Planner</title>
+
+    <!--
+      Recovery for a blank page. The app is one module script, so if that file
+      fails to arrive nothing runs at all and the page just stays empty, with
+      no React yet to report anything.
+
+      The usual cause is a stale document: a tab held from before a deploy asks
+      for an asset filename that no longer exists. Reloading fetches the
+      current HTML and fixes it, so that is done once, automatically. The
+      sessionStorage flag is what stops a genuinely broken deploy from turning
+      into a reload loop; the second failure shows a message instead.
+
+      Registered before Vite's script tag so the capture-phase listener is
+      already installed when that tag starts loading.
+    -->
+    <script>
+      ;(function () {
+        var RETRY_KEY = 'planner:reloaded-for-missing-assets'
+        var recovered = false
+
+        function recover(reason) {
+          if (recovered) return
+          recovered = true
+
+          if (sessionStorage.getItem(RETRY_KEY)) {
+            // Already retried this session, so the assets are genuinely gone
+            // rather than merely stale. Say so instead of looping.
+            var root = document.getElementById('root')
+            if (root && !root.hasChildNodes()) {
+              root.innerHTML =
+                '<div style="font:16px/1.6 system-ui,sans-serif;color:#171a17;max-width:34rem;margin:12vh auto;padding:0 1.5rem">' +
+                '<h1 style="font-size:1.25rem;margin:0 0 .5rem">This page failed to load</h1>' +
+                '<p style="color:#6a6a5f;margin:0 0 1.25rem">Something went wrong fetching the app (' +
+                reason +
+                '). A refresh usually clears it.</p>' +
+                '<a href="https://eamoncobb.com/" style="color:#16794a">Back to eamoncobb.com</a></div>'
+            }
+            return
+          }
+
+          sessionStorage.setItem(RETRY_KEY, '1')
+          // Cache-busted so the reload cannot be answered from the same stale
+          // copy that just failed.
+          var url = new URL(window.location.href)
+          url.searchParams.set('r', Date.now().toString(36))
+          window.location.replace(url.toString())
+        }
+
+        // Resource errors do not bubble, so this listens in the capture phase.
+        window.addEventListener(
+          'error',
+          function (event) {
+            var el = event.target
+            if (el && (el.tagName === 'SCRIPT' || el.tagName === 'LINK')) {
+              recover('asset ' + (el.src || el.href || '').split('/').pop())
+            }
+          },
+          true,
+        )
+
+        // Backstop for failures that never fire an error event, such as a
+        // script that arrives but throws before mounting.
+        window.addEventListener('load', function () {
+          setTimeout(function () {
+            var root = document.getElementById('root')
+            if (root && !root.hasChildNodes()) recover('nothing rendered')
+          }, 4000)
+        })
+
+        // A clean run clears the flag, so a later stale document still gets
+        // its one automatic retry, and tidies the cache-busting param back out
+        // of the address bar.
+        window.addEventListener('planner:ready', function () {
+          sessionStorage.removeItem(RETRY_KEY)
+          if (new URL(window.location.href).searchParams.has('r')) {
+            var clean = new URL(window.location.href)
+            clean.searchParams.delete('r')
+            window.history.replaceState(null, '', clean.toString())
+          }
+        })
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>
