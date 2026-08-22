@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { moneyCompact } from '@/lib/format'
 
-// Squarer than the fan chart's box on purpose. This one sits in a column
-// roughly half the page width, and a 640-wide viewBox scaled down to fit left
-// it about ninety pixels tall, which is too flat to read a distribution off.
-const W = 420
-const H = 186
-const PAD = { top: 18, right: 10, bottom: 24, left: 10 }
+// Full width under the fan chart, so it shares that chart's proportions. The
+// viewBox scales to whatever width the card gives it, and a narrower box here
+// would render far too tall across the whole column.
+const W = 640
+const H = 146
+const PAD = { top: 16, right: 12, bottom: 22, left: 12 }
 const IW = W - PAD.left - PAD.right
 const IH = H - PAD.top - PAD.bottom
 
@@ -100,8 +100,7 @@ export default function Histogram({ edges, counts, target, median }) {
         </g>
       )}
 
-      {/* Three labels rather than five: at this width five collided. */}
-      {[0, 0.5, 1].map((f) => (
+      {[0, 0.25, 0.5, 0.75, 1].map((f) => (
         <text
           key={f}
           x={PAD.left + f * IW}

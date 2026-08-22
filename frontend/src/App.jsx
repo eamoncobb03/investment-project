@@ -104,26 +104,19 @@ function Percentile({ note, value, accent }) {
 function ResultsSkeleton({ simulating }) {
   return (
     <div className="flex flex-col gap-4" aria-hidden>
-      {!simulating && (
-        <div className="space-y-2 px-0.5 py-1">
-          <Skeleton className="h-3 w-40" />
-          <Skeleton className="h-12 w-64" />
-          <Skeleton className="h-4 w-52" />
-        </div>
-      )}
+      <div className="space-y-2 px-0.5 py-1">
+        <Skeleton className="h-3 w-40" />
+        <Skeleton className="h-12 w-64" />
+        {!simulating && <Skeleton className="h-4 w-52" />}
+      </div>
 
       <Card className="px-2.5 [--card-spacing:--spacing(2.5)]">
         <Skeleton className={simulating ? 'h-[345px] w-full' : 'h-[300px] w-full'} />
       </Card>
 
       {simulating ? (
-        <Card className="grid items-center gap-x-6 gap-y-3 px-4 [--card-spacing:--spacing(4)] md:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
-          <div className="space-y-2">
-            <Skeleton className="h-3 w-40" />
-            <Skeleton className="h-11 w-28" />
-            <Skeleton className="h-4 w-44" />
-          </div>
-          <Skeleton className="h-[168px] w-full" />
+        <Card className="px-2.5 [--card-spacing:--spacing(2.5)]">
+          <Skeleton className="h-[180px] w-full" />
         </Card>
       ) : (
         <div className="grid gap-2.5 min-[460px]:grid-cols-3">
@@ -203,9 +196,6 @@ function App() {
         <h1 className="font-mono text-[clamp(1.6rem,6vw,2.3rem)] font-semibold tracking-[-0.03em]">
           Investment <span className="text-primary">Planner</span>
         </h1>
-        <p className="text-muted-foreground mt-1.5 text-[0.95rem]">
-          See what steady contributions turn into over time.
-        </p>
       </header>
 
       <main className="grid items-start gap-[18px] md:grid-cols-[310px_1fr] md:gap-6">
@@ -329,7 +319,7 @@ function App() {
           </form>
         </Card>
 
-        <section className="flex min-w-0 flex-col gap-4" aria-live="polite">
+        <section className="flex min-w-0 flex-col gap-3" aria-live="polite">
           {/* This theme sets --muted to the page background, so the default
               tab styling would put an invisible tray behind an invisible
               active pill. The pale green and the card white are the two
@@ -396,9 +386,33 @@ function App() {
 
           {!error && data && simulating && (
             <>
-              {/* The fan chart leads: it is the thing this mode exists to
-                  show. Everything below it is either a summary of it or a
-                  cross-section through it. */}
+              {/* The headline answers the question in one number; the fan
+                  chart under it is the first thing drawn, and shows where that
+                  number came from. */}
+              <div
+                className={`flex flex-col gap-0.5 px-0.5 py-1 transition-opacity duration-200 ${
+                  pending ? 'opacity-55' : ''
+                }`}
+              >
+                <span className="text-muted-foreground text-[0.8rem] tracking-[0.09em] uppercase">
+                  Odds of reaching {money(data.target)}
+                </span>
+                {/* The supporting line sits beside the number rather than under
+                    it. Stacked it added another row to the tallest block above
+                    the fold, and it wraps below on a narrow screen anyway. */}
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                  <strong className="font-mono text-[clamp(2rem,7vw,3rem)] leading-[1.05] font-semibold tracking-[-0.035em] tabular-nums">
+                    {Math.round(odds)}%
+                  </strong>
+                  <span className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-[0.85rem]">
+                    Typically {money(data.final.p50)} by age {rows[lastIndex].age}
+                    <Hint label="What the typical outcome means">
+                      The middle result, with half the runs finishing above it and half below.
+                    </Hint>
+                  </span>
+                </div>
+              </div>
+
               <Card
                 className={`gap-0 px-2.5 [--card-spacing:--spacing(2.5)] transition-opacity duration-200 ${
                   pending ? 'opacity-55' : ''
@@ -444,46 +458,29 @@ function App() {
                 </div>
               </Card>
 
-              {/* The odds and the histogram are one fact, not two: the shaded
-                  share of those bars *is* the percentage beside them. Pairing
-                  them says so, and it costs one card instead of two. */}
+              {/* The shaded share of these bars *is* the percentage in the
+                  headline, which is why the caption talks in runs rather than
+                  repeating the odds. */}
               <Card
-                className={`grid items-center gap-x-6 gap-y-3 px-4 [--card-spacing:--spacing(4)] transition-opacity duration-200 md:grid-cols-[minmax(0,14rem)_minmax(0,1fr)] ${
+                className={`gap-0 px-2.5 [--card-spacing:--spacing(2.5)] transition-opacity duration-200 ${
                   pending ? 'opacity-55' : ''
                 }`}
               >
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-muted-foreground text-[0.8rem] tracking-[0.09em] uppercase">
-                    Odds of reaching {money(data.target)}
-                  </span>
-                  <strong className="font-mono text-[clamp(2rem,6vw,2.75rem)] leading-[1.05] font-semibold tracking-[-0.035em] tabular-nums">
-                    {Math.round(odds)}%
-                  </strong>
-                  <span className="text-muted-foreground mt-1 flex flex-wrap items-center gap-1.5 text-[0.85rem]">
-                    Typically {money(data.final.p50)} by age {rows[lastIndex].age}
-                    <Hint label="What the typical outcome means">
-                      The middle result, with half the runs finishing above it and half below.
-                    </Hint>
-                  </span>
-                </div>
-
-                <div className="min-w-0">
-                  <Histogram
-                    edges={data.histogram.edges}
-                    counts={data.histogram.counts}
-                    target={data.target}
-                    median={data.final.p50}
-                  />
-                  <p className="text-muted-foreground pt-1 text-[0.76rem] select-none">
-                    {data.paths_simulated.toLocaleString()} runs by age {rows[lastIndex].age}.{' '}
-                    {data.probability_below_contributed > 0 && (
-                      <>
-                        {data.probability_below_contributed}% finished below the{' '}
-                        {money(data.total_contributed)} put in.
-                      </>
-                    )}
-                  </p>
-                </div>
+                <Histogram
+                  edges={data.histogram.edges}
+                  counts={data.histogram.counts}
+                  target={data.target}
+                  median={data.final.p50}
+                />
+                <p className="text-muted-foreground px-2 pt-1.5 pb-0.5 text-[0.76rem] select-none">
+                  {data.paths_simulated.toLocaleString()} runs by age {rows[lastIndex].age}.{' '}
+                  {data.probability_below_contributed > 0 && (
+                    <>
+                      {data.probability_below_contributed}% finished below the{' '}
+                      {money(data.total_contributed)} put in.
+                    </>
+                  )}
+                </p>
               </Card>
             </>
           )}

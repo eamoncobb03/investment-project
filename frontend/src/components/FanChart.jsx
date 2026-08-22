@@ -2,8 +2,8 @@ import { useId, useMemo, useRef, useState } from 'react'
 import { moneyCompact } from '@/lib/format'
 
 const W = 640
-const H = 272
-const PAD = { top: 18, right: 14, bottom: 28, left: 56 }
+const H = 254
+const PAD = { top: 16, right: 14, bottom: 26, left: 56 }
 const IW = W - PAD.left - PAD.right
 const IH = H - PAD.top - PAD.bottom
 
