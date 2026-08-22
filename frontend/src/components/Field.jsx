@@ -1,3 +1,4 @@
+import Hint from '@/components/Hint'
 import { Label } from '@/components/ui/label'
 import { Slider } from '@/components/ui/slider'
 import { sanitizeNumeric } from '@/lib/format'
@@ -21,6 +22,7 @@ export default function Field({
   sliderMax,
   // Seven-figure values overflow the default width and get clipped mid-number.
   wide,
+  hint,
 }) {
   const numeric = parseFloat(value)
   const safe = Number.isFinite(numeric) ? numeric : min
@@ -30,9 +32,12 @@ export default function Field({
   return (
     <div className="space-y-2.5">
       <div className="flex items-baseline justify-between gap-3">
-        <Label htmlFor={id} className="text-muted-foreground text-sm font-normal">
-          {label}
-        </Label>
+        <span className="flex min-w-0 items-center gap-1.5">
+          <Label htmlFor={id} className="text-muted-foreground text-sm font-normal">
+            {label}
+          </Label>
+          {hint && <Hint label={`What ${label.toLowerCase()} means`}>{hint}</Hint>}
+        </span>
 
         <div className="border-input bg-background focus-within:border-ring flex min-w-0 items-center rounded-md border px-2.5 py-1.5 transition-colors">
           {prefix && <span className="text-muted-foreground font-mono text-sm">{prefix}</span>}

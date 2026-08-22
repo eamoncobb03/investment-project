@@ -39,6 +39,26 @@
   --accent-bright: #1f9c60;
   --contributed: #cfd8cd;
 
+  /* ── Fan chart layers ───────────────────────────────────────────────────
+     Five things stack up in one plot, and tinting them all from --primary
+     made them read as one green smear. Each layer now gets its own value,
+     picked so neighbours differ in lightness *and* hue rather than opacity
+     alone:
+
+     - the two bands are opaque steps of green, light to mid, so the inner
+       one sits clearly inside the outer instead of being a denser wash of it
+     - the sample paths leave green entirely for slate, because they are
+       individual outcomes rather than another summary layer
+     - the contributed line goes warm, the one thing on the chart that is
+       money in rather than money earned
+     - the median is the darkest green on the page, so it wins against every
+       band behind it */
+  --band-outer: #d2e6da;
+  --band-inner: #98c7ae;
+  --path-line: #64748b;
+  --median-line: #0c4b2e;
+  --contributed-line: #a1815a;
+
   --radius: 0.875rem;
 
   color-scheme: light;
@@ -177,29 +197,25 @@
     animation: chart-rise 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
-  /* Strength lives on fill-opacity rather than opacity because chart-rise
-     animates opacity to 1 and runs with fill-mode both, so an `opacity` here
-     would be overridden by the animation's resting state the moment it
-     finished — which paints the bands as solid blocks. The two multiply, so
-     fill-opacity survives it. .fan-path dodges the same trap via
-     stroke-opacity. */
+  /* Opaque, so the inner band covers the outer rather than compounding with
+     it. Two washes of the same colour differ only in density, which is the
+     thing that made these read as one shape. */
   .fan-band-outer {
-    fill: var(--primary);
-    fill-opacity: 0.14;
+    fill: var(--band-outer);
   }
 
   .fan-band-inner {
-    fill: var(--primary);
-    fill-opacity: 0.26;
+    fill: var(--band-inner);
   }
 
-  /* Thin and faint on purpose. Twelve of these at full strength would read as
-     the subject of the chart rather than as texture behind the median. */
+  /* Thin on purpose. Twelve of these at full strength would read as the
+     subject of the chart rather than as texture behind the median. Slate
+     rather than green so they separate from the bands they cross. */
   .fan-path {
     fill: none;
-    stroke: var(--accent-bright);
+    stroke: var(--path-line);
     stroke-width: 1;
-    stroke-opacity: 0.4;
+    stroke-opacity: 0.55;
     stroke-linecap: round;
     stroke-linejoin: round;
     stroke-dasharray: 1;
@@ -208,10 +224,18 @@
     animation-delay: calc(var(--i) * 45ms);
   }
 
+  .fan-contributed-line {
+    fill: none;
+    stroke: var(--contributed-line);
+    stroke-width: 1.5;
+    stroke-dasharray: 5 4;
+    stroke-linecap: round;
+  }
+
   .fan-median {
     fill: none;
-    stroke: var(--primary);
-    stroke-width: 2.5;
+    stroke: var(--median-line);
+    stroke-width: 2.75;
     stroke-linecap: round;
     stroke-linejoin: round;
     stroke-dasharray: 1;
@@ -222,15 +246,20 @@
 
   .fan-target line {
     stroke: var(--foreground);
-    stroke-width: 1;
+    stroke-width: 1.25;
     stroke-dasharray: 4 4;
-    opacity: 0.4;
+    opacity: 0.55;
   }
 
   .fan-target text {
     font-family: var(--font-mono);
     font-size: 10px;
-    fill: var(--muted-foreground);
+    fill: var(--foreground);
+    /* Painting the stroke first puts a card-coloured halo behind the glyphs,
+       so the label stays readable wherever it lands on the bands. */
+    stroke: var(--card);
+    stroke-width: 3;
+    paint-order: stroke fill;
   }
 
   .hist {
@@ -261,31 +290,37 @@
   }
 
   .hist-mark line {
-    stroke-width: 1;
+    stroke-width: 1.5;
   }
 
+  /* Both labels sit directly on top of the bars, so each glyph gets a
+     card-coloured halo painted behind it. Without this the median label was
+     green text on green bars and disappeared into them. */
   .hist-mark text {
     font-family: var(--font-mono);
     font-size: 10px;
+    font-weight: 600;
+    stroke: var(--card);
+    stroke-width: 3.5;
+    paint-order: stroke fill;
   }
 
   .hist-mark-target line {
     stroke: var(--foreground);
     stroke-dasharray: 3 3;
-    opacity: 0.55;
+    opacity: 0.65;
   }
 
   .hist-mark-target text {
-    fill: var(--muted-foreground);
+    fill: var(--foreground);
   }
 
   .hist-mark-median line {
-    stroke: var(--accent-bright);
-    opacity: 0.8;
+    stroke: var(--median-line);
   }
 
   .hist-mark-median text {
-    fill: var(--accent-bright);
+    fill: var(--median-line);
   }
 
   @keyframes hist-grow {
@@ -325,6 +360,16 @@
     transition:
       cx 100ms ease-out,
       cy 100ms ease-out;
+  }
+
+  /* The eased transition above is what makes a keyboard arrow-step glide
+     instead of teleporting, but under a finger it is pure latency: the dot is
+     interpolating towards a position the pointer has already left, so it
+     trails by the whole 100ms for the entire drag. Cancelled while dragging
+     and restored the moment the pointer lifts. */
+  .chart[data-dragging='true'] .chart-cursor line,
+  .chart[data-dragging='true'] .chart-cursor circle {
+    transition: none;
   }
 }
 

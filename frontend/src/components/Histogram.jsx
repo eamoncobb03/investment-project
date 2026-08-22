@@ -75,10 +75,14 @@ export default function Histogram({ edges, counts, target, median }) {
 
       <line x1={PAD.left} x2={W - PAD.right} y1={PAD.top + IH} y2={PAD.top + IH} className="hist-base" />
 
+      {/* The two labels are parked at deliberately different heights. Both sit
+          over the bars, and when the median lands near the target — which it
+          does whenever the odds are close to even — labels on the same line
+          would collide. */}
       {inRange(target) && (
         <g className="hist-mark hist-mark-target">
           <line x1={x(target)} x2={x(target)} y1={PAD.top - 4} y2={PAD.top + IH} />
-          <text x={x(target)} y={PAD.top - 8} textAnchor="middle">
+          <text x={x(target)} y={PAD.top - 7} textAnchor="middle">
             target
           </text>
         </g>
@@ -86,8 +90,8 @@ export default function Histogram({ edges, counts, target, median }) {
 
       {inRange(median) && (
         <g className="hist-mark hist-mark-median">
-          <line x1={x(median)} x2={x(median)} y1={PAD.top + IH * 0.45} y2={PAD.top + IH} />
-          <text x={x(median)} y={PAD.top + IH * 0.45 - 5} textAnchor="middle">
+          <line x1={x(median)} x2={x(median)} y1={PAD.top} y2={PAD.top + IH} />
+          <text x={x(median)} y={PAD.top + 12} textAnchor="middle">
             median
           </text>
         </g>

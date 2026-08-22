@@ -1,8 +1,8 @@
-import { useId, useRef, useState } from 'react'
+import { useId, useMemo, useRef, useState } from 'react'
 import { moneyCompact } from '@/lib/format'
 
 const W = 640
-const H = 340
+const H = 300
 const PAD = { top: 20, right: 14, bottom: 30, left: 56 }
 const IW = W - PAD.left - PAD.right
 const IH = H - PAD.top - PAD.bottom
@@ -31,6 +31,7 @@ function niceMax(value) {
 export default function FanChart({ rows, paths, target, activeIndex, onScrub }) {
   const svgRef = useRef(null)
   const clipId = useId()
+  const [dragging, setDragging] = useState(false)
 
   // Bumped only when the dataset is genuinely new (a fresh Apply), never by
   // scrubbing, which changes activeIndex on the same arrays. Keying the drawn
@@ -58,17 +59,29 @@ export default function FanChart({ rows, paths, target, activeIndex, onScrub }) 
   const x = (i) => PAD.left + (n <= 1 ? IW / 2 : (i / (n - 1)) * IW)
   const y = (v) => PAD.top + IH - (v / max) * IH
 
-  const lineOf = (values) => values.map((v, i) => `${i ? 'L' : 'M'}${x(i)},${y(v)}`).join(' ')
+  // Every path string below depends only on the data and the scale, never on
+  // activeIndex — but a drag calls onScrub on every pointer move, so without
+  // this the whole plot (twelve sample paths at forty-one points each, plus
+  // both bands) would be rebuilt from scratch every frame just to move a dot.
+  const geometry = useMemo(() => {
+    const lineOf = (values) => values.map((v, i) => `${i ? 'L' : 'M'}${x(i)},${y(v)}`).join(' ')
 
-  // Out along the upper percentile, back along the lower one, closed.
-  const band = (lo, hi) => {
-    const forward = lineOf(rows.map((r) => r[hi]))
-    const back = []
-    for (let i = n - 1; i >= 0; i -= 1) back.push(`L${x(i)},${y(rows[i][lo])}`)
-    return `${forward} ${back.join(' ')} Z`
-  }
+    // Out along the upper percentile, back along the lower one, closed.
+    const band = (lo, hi) => {
+      const back = []
+      for (let i = n - 1; i >= 0; i -= 1) back.push(`L${x(i)},${y(rows[i][lo])}`)
+      return `${lineOf(rows.map((r) => r[hi]))} ${back.join(' ')} Z`
+    }
 
-  const contributed = `${lineOf(rows.map((r) => r.total_contributed))} L${x(n - 1)},${y(0)} L${x(0)},${y(0)} Z`
+    return {
+      outer: band('p5', 'p95'),
+      inner: band('p25', 'p75'),
+      contributed: lineOf(rows.map((r) => r.total_contributed)),
+      median: lineOf(rows.map((r) => r.p50)),
+      samples: paths.map((path) => lineOf(path)),
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, paths, max, n])
 
   // Maps a pointer position through the viewBox, so it stays correct at any
   // rendered size without measuring the element's pixel dimensions.
@@ -89,6 +102,7 @@ export default function FanChart({ rows, paths, target, activeIndex, onScrub }) 
     <svg
       ref={svgRef}
       className="chart"
+      data-dragging={dragging ? 'true' : undefined}
       viewBox={`0 0 ${W} ${H}`}
       role="img"
       aria-label={`Range of simulated balances from age ${rows[0].age} to ${rows[n - 1].age}`}
@@ -100,11 +114,14 @@ export default function FanChart({ rows, paths, target, activeIndex, onScrub }) 
         e.preventDefault()
         e.currentTarget.focus()
         e.currentTarget.setPointerCapture(e.pointerId)
+        setDragging(true)
         scrubFrom(e.clientX)
       }}
       onPointerMove={(e) => {
         if (e.buttons || e.pointerType === 'touch') scrubFrom(e.clientX)
       }}
+      onPointerUp={() => setDragging(false)}
+      onPointerCancel={() => setDragging(false)}
       onKeyDown={(e) => {
         if (e.key === 'ArrowLeft') onScrub(Math.max(0, activeIndex - 1))
         if (e.key === 'ArrowRight') onScrub(Math.min(n - 1, activeIndex + 1))
@@ -126,14 +143,13 @@ export default function FanChart({ rows, paths, target, activeIndex, onScrub }) 
       ))}
 
       <g key={version} className="chart-series" clipPath={`url(#${clipId})`}>
-        <path d={band('p5', 'p95')} className="fan-band fan-band-outer" />
-        <path d={band('p25', 'p75')} className="fan-band fan-band-inner" />
-        <path d={contributed} className="chart-contributed" />
+        <path d={geometry.outer} className="fan-band fan-band-outer" />
+        <path d={geometry.inner} className="fan-band fan-band-inner" />
 
-        {paths.map((path, i) => (
+        {geometry.samples.map((d, i) => (
           <path
             key={i}
-            d={lineOf(path)}
+            d={d}
             className="fan-path"
             pathLength="1"
             // Staggered so the paths arrive as a scatter rather than all at
@@ -142,7 +158,12 @@ export default function FanChart({ rows, paths, target, activeIndex, onScrub }) 
           />
         ))}
 
-        <path d={lineOf(rows.map((r) => r.p50))} className="fan-median" pathLength="1" />
+        {/* A line rather than the filled area the single-rate chart uses. As a
+            fill it sat on top of the bands and turned the bottom of the plot
+            into a third overlapping wash; as a line it reads as the reference
+            it actually is. */}
+        <path d={geometry.contributed} className="fan-contributed-line" />
+        <path d={geometry.median} className="fan-median" pathLength="1" />
       </g>
 
       {targetVisible && (

@@ -17,6 +17,7 @@ function niceMax(value) {
 
 export default function Chart({ rows, activeIndex, onScrub }) {
   const svgRef = useRef(null)
+  const [dragging, setDragging] = useState(false)
 
   // Bumped only when `rows` is a genuinely new dataset (a fresh Apply),
   // never by scrubbing (which just changes activeIndex on the same array).
@@ -61,6 +62,7 @@ export default function Chart({ rows, activeIndex, onScrub }) {
     <svg
       ref={svgRef}
       className="chart"
+      data-dragging={dragging ? 'true' : undefined}
       viewBox={`0 0 ${W} ${H}`}
       role="img"
       aria-label={`Projected balance from age ${rows[0].age} to ${rows[n - 1].age}`}
@@ -72,11 +74,14 @@ export default function Chart({ rows, activeIndex, onScrub }) {
         e.preventDefault()
         e.currentTarget.focus()
         e.currentTarget.setPointerCapture(e.pointerId)
+        setDragging(true)
         scrubFrom(e.clientX)
       }}
       onPointerMove={(e) => {
         if (e.buttons || e.pointerType === 'touch') scrubFrom(e.clientX)
       }}
+      onPointerUp={() => setDragging(false)}
+      onPointerCancel={() => setDragging(false)}
       onKeyDown={(e) => {
         if (e.key === 'ArrowLeft') onScrub(Math.max(0, activeIndex - 1))
         if (e.key === 'ArrowRight') onScrub(Math.min(n - 1, activeIndex + 1))

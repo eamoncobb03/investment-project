@@ -4,6 +4,7 @@ import Field from '@/components/Field'
 import Chart from '@/components/Chart'
 import FanChart from '@/components/FanChart'
 import Histogram from '@/components/Histogram'
+import Hint from '@/components/Hint'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -53,14 +54,47 @@ function Split({ label, note, value, accent }) {
   )
 }
 
-function Swatch({ className, children }) {
+/**
+ * A legend chip. `line` draws a short bar instead of a square, so the entries
+ * standing for lines on the chart do not claim to be filled regions.
+ */
+function Swatch({ className, line, children }) {
   return (
     <span className="flex items-center gap-1.5">
-      {/* The faint band tints are barely visible at swatch size, so these
-          carry a hairline ring to give the chip an edge to be seen by. */}
-      <span aria-hidden className={`ring-border size-2.5 rounded-[3px] ring-1 ${className}`} />
+      <span
+        aria-hidden
+        className={
+          line
+            ? `h-[3px] w-3 rounded-full ${className}`
+            : `ring-border/60 size-2.5 rounded-[3px] ring-1 ${className}`
+        }
+      />
       {children}
     </span>
+  )
+}
+
+/**
+ * One scrub-linked percentile readout, sized to sit inside the chart card.
+ *
+ * The age is printed once above the row rather than on each of the three, so a
+ * seven-figure value gets the whole column width. Repeating it here pushed the
+ * label onto two lines and truncated the number beside it on a phone.
+ */
+function Percentile({ note, value, accent }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-0.5">
+      <span className="text-muted-foreground text-[0.68rem] tracking-[0.07em] uppercase">
+        {note}
+      </span>
+      <strong
+        className={`truncate font-mono text-[0.9rem] font-semibold tabular-nums sm:text-[0.95rem] ${
+          accent ? 'text-primary' : ''
+        }`}
+      >
+        {value}
+      </strong>
+    </div>
   )
 }
 
@@ -201,6 +235,11 @@ function App() {
               max={100}
               sliderMax={15}
               step={0.1}
+              hint={
+                simulating
+                  ? 'What the portfolio earns per year on average, before inflation. Individual years land above and below it. A broad stock index has historically averaged somewhere around 7 to 10%.'
+                  : 'What the portfolio earns every year, before inflation. Real returns are never this steady, which is what the Monte Carlo mode is for.'
+              }
             />
 
             {simulating && (
@@ -214,6 +253,7 @@ function App() {
                   max={100}
                   sliderMax={40}
                   step={0.5}
+                  hint="How much returns swing from year to year. A broad stock index sits near 15%; bonds are lower, a single stock much higher. Raising it widens the range of outcomes and pulls the typical result down, even though the average return has not changed."
                 />
                 <Field
                   label="Target"
@@ -225,6 +265,7 @@ function App() {
                   max={1000000000}
                   sliderMax={5000000}
                   step={25000}
+                  hint="The number the odds at the top are measured against. It has no effect on the simulation itself, only on how many of its runs count as clearing the bar."
                 />
               </>
             )}
@@ -353,12 +394,22 @@ function App() {
                 <strong className="font-mono text-[clamp(2.1rem,9vw,3.4rem)] leading-[1.05] font-semibold tracking-[-0.035em] tabular-nums">
                   {Math.round(odds)}%
                 </strong>
-                <span className="text-muted-foreground mt-1 text-[0.9rem]">
-                  Across {data.paths_simulated.toLocaleString()} simulated futures. The typical
-                  one ends at {money(data.final.p50)} by age {rows[lastIndex].age}.
+                <span className="text-muted-foreground mt-1 flex flex-wrap items-center gap-1.5 text-[0.9rem]">
+                  Across {data.paths_simulated.toLocaleString()} simulated futures. The typical one
+                  ends at {money(data.final.p50)} by age {rows[lastIndex].age}.
+                  <Hint label="What the typical outcome means">
+                    The middle result: half the runs finished above it, half below. It sits lower
+                    than a plain average, because a handful of very lucky runs drag an average
+                    upward while most outcomes stay nearer this number.
+                  </Hint>
                 </span>
               </div>
 
+              {/* The percentile readouts live inside this card rather than in a
+                  row of their own. They are tied to wherever the chart is
+                  scrubbed, so they belong next to it, and folding them in
+                  removes a card plus a gap — enough to bring the histogram
+                  below into view without scrolling on a laptop screen. */}
               <Card className="gap-0 px-2.5 [--card-spacing:--spacing(2.5)]">
                 <FanChart
                   rows={rows}
@@ -367,20 +418,34 @@ function App() {
                   activeIndex={activeIndex}
                   onScrub={setPinned}
                 />
-                <div className="text-muted-foreground flex flex-wrap items-center gap-3.5 px-2 pt-2 pb-0.5 text-[0.78rem] select-none">
-                  <Swatch className="bg-primary">Median</Swatch>
-                  <Swatch className="bg-primary/26">Middle 50%</Swatch>
-                  <Swatch className="bg-primary/14">5th to 95th</Swatch>
-                  <Swatch className="bg-contributed">You put in</Swatch>
+                <div className="text-muted-foreground flex flex-wrap items-center gap-x-3.5 gap-y-1.5 px-2 pt-2 text-[0.78rem] select-none">
+                  <Swatch line className="bg-(--median-line)">
+                    Median
+                  </Swatch>
+                  <Swatch className="bg-(--band-inner)">Middle 50%</Swatch>
+                  <Swatch className="bg-(--band-outer)">5th to 95th</Swatch>
+                  <Swatch line className="bg-(--path-line)">
+                    Sample runs
+                  </Swatch>
+                  <Swatch line className="bg-(--contributed-line)">
+                    You put in
+                  </Swatch>
                   <span className="ml-auto">Drag across the chart</span>
                 </div>
-              </Card>
 
-              <div className="grid gap-2.5 min-[460px]:grid-cols-3">
-                <Split label={`Age ${active.age}`} note="5th" value={money(low)} />
-                <Split label={`Age ${active.age}`} note="median" value={money(median)} accent />
-                <Split label={`Age ${active.age}`} note="95th" value={money(high)} />
-              </div>
+                <Separator className="mt-2.5" />
+
+                <div className="px-2 pt-2.5 pb-0.5">
+                  <span className="text-muted-foreground text-[0.68rem] tracking-[0.09em] uppercase">
+                    At age {active.age}
+                  </span>
+                  <div className="mt-1.5 grid grid-cols-3 gap-3">
+                    <Percentile note="5th" value={money(low)} />
+                    <Percentile note="median" value={money(median)} accent />
+                    <Percentile note="95th" value={money(high)} />
+                  </div>
+                </div>
+              </Card>
 
               <Card className="gap-0 px-2.5 [--card-spacing:--spacing(2.5)]">
                 <Histogram
