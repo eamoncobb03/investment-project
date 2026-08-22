@@ -340,6 +340,22 @@
     fill: var(--muted-foreground);
   }
 
+  /* Every plot here is a fixed viewBox scaled to whatever width it is given,
+     so its type shrinks with the container: on a phone the 640-unit box lands
+     near half size and 11px of label renders around six. These sizes are in
+     viewBox units, not screen pixels, so they are chosen to come out legible
+     after that scaling rather than to look right in the markup. */
+  @media (width <= 40rem) {
+    .chart-tick {
+      font-size: 17px;
+    }
+
+    .hist-mark text,
+    .fan-target text {
+      font-size: 15px;
+    }
+  }
+
   .chart-tick-y {
     text-anchor: end;
   }

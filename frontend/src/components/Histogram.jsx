@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { moneyCompact } from '@/lib/format'
 
-// Full width under the fan chart, so it shares that chart's proportions. The
-// viewBox scales to whatever width the card gives it, and a narrower box here
-// would render far too tall across the whole column.
+// Deliberately the same box as the fan chart. The two share one slot in the
+// panel and swap on a toggle, so any difference in height would make the card
+// jump every time the view changed.
 const W = 640
-const H = 146
-const PAD = { top: 16, right: 12, bottom: 22, left: 12 }
+const H = 254
+const PAD = { top: 20, right: 12, bottom: 26, left: 12 }
 const IW = W - PAD.left - PAD.right
 const IH = H - PAD.top - PAD.bottom
 

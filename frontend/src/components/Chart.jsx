@@ -1,9 +1,11 @@
 import { useRef, useState } from 'react'
 import { moneyCompact } from '@/lib/format'
 
+// Matched to the fan chart and the histogram. All three sit in the same panel
+// slot, so a shared box keeps the card the same height in either mode.
 const W = 640
-const H = 300
-const PAD = { top: 18, right: 14, bottom: 30, left: 56 }
+const H = 254
+const PAD = { top: 16, right: 14, bottom: 34, left: 56 }
 const IW = W - PAD.left - PAD.right
 const IH = H - PAD.top - PAD.bottom
 

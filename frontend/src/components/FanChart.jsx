@@ -3,7 +3,10 @@ import { moneyCompact } from '@/lib/format'
 
 const W = 640
 const H = 254
-const PAD = { top: 16, right: 14, bottom: 26, left: 56 }
+// Roomy along the bottom because the axis type grows on small screens (see the
+// media query in index.css); at 26 the "$0" gridline label and the first age
+// label ran into each other there.
+const PAD = { top: 16, right: 14, bottom: 34, left: 56 }
 const IW = W - PAD.left - PAD.right
 const IH = H - PAD.top - PAD.bottom
 

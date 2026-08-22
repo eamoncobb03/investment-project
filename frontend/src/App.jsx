@@ -34,23 +34,51 @@ const SITE_URL = 'https://eamoncobb.com/'
 const toApplied = (draft) =>
   Object.fromEntries(Object.entries(draft).map(([key, value]) => [key, toNumber(value)]))
 
-function Split({ label, note, value, accent }) {
+/**
+ * The one number the page is answering with, however the mode phrases it.
+ *
+ * Both modes fill the same three slots — a quiet label, the number, and one
+ * supporting line beside it — so switching between them moves the value rather
+ * than rearranging the page around it.
+ */
+function Headline({ eyebrow, value, detail, pending }) {
   return (
-    <Card
-      className={`gap-0.5 px-3.5 [--card-spacing:--spacing(3.5)] ${
-        accent ? 'bg-secondary ring-0' : ''
+    <div
+      className={`flex flex-col gap-1 px-1 transition-opacity duration-200 ${
+        pending ? 'opacity-55' : ''
       }`}
     >
-      <span className="text-muted-foreground flex items-baseline justify-between gap-2 text-[0.72rem] tracking-[0.07em] uppercase">
-        {label}
-        {note && <span className="font-mono tracking-normal normal-case">{note}</span>}
+      <span className="text-muted-foreground text-[0.78rem] tracking-[0.1em] uppercase">
+        {eyebrow}
+      </span>
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        {/* Tabular figures stop the number jittering as it animates. */}
+        <strong className="font-mono text-[clamp(2rem,6.5vw,2.9rem)] leading-[1] font-semibold tracking-[-0.04em] tabular-nums">
+          {value}
+        </strong>
+        <span className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-[0.88rem]">
+          {detail}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+/** One label-and-value pair from the strip under a chart. */
+function Stat({ note, value, accent }) {
+  return (
+    <span className="flex items-baseline gap-1.5 whitespace-nowrap">
+      <span className="text-muted-foreground text-[0.68rem] tracking-[0.08em] uppercase">
+        {note}
       </span>
       <strong
-        className={`font-mono text-[1.05rem] font-semibold tabular-nums ${accent ? 'text-primary' : ''}`}
+        className={`font-mono text-[0.88rem] font-semibold tabular-nums ${
+          accent ? 'text-primary' : ''
+        }`}
       >
         {value}
       </strong>
-    </Card>
+    </span>
   )
 }
 
@@ -75,56 +103,54 @@ function Swatch({ className, line, children }) {
 }
 
 /**
- * One scrub-linked percentile readout.
+ * The frame both modes draw into: a caption row, the plot, the numbers it is
+ * currently reporting, and a legend.
  *
- * Label and value sit on the same line rather than stacked. Stacked, the three
- * of them plus a heading cost about seventy-five vertical pixels inside the
- * chart card, which was enough on its own to push the histogram below it off a
- * laptop screen. Inline they cost roughly a third of that, and they wrap onto
- * a second line on a phone instead of squeezing three columns into 375px.
+ * Holding this shape fixed is what keeps the two modes comparable, and it is
+ * also what keeps the page inside a laptop screen — Monte Carlo used to stack
+ * a second chart underneath, which is what kept falling below the fold.
  */
-function Percentile({ note, value, accent }) {
+function ChartPanel({ caption, toolbar, stats, legend, pending, children }) {
   return (
-    <span className="flex items-baseline gap-1.5 whitespace-nowrap">
-      <span className="text-muted-foreground text-[0.68rem] tracking-[0.07em] uppercase">
-        {note}
-      </span>
-      <strong
-        className={`font-mono text-[0.85rem] font-semibold tabular-nums ${
-          accent ? 'text-primary' : ''
-        }`}
-      >
-        {value}
-      </strong>
-    </span>
+    <Card
+      className={`gap-0 px-3 [--card-spacing:--spacing(3)] transition-opacity duration-200 ${
+        pending ? 'opacity-55' : ''
+      }`}
+    >
+      <div className="flex min-h-8 flex-wrap items-center justify-between gap-2 pb-1">
+        <span className="text-muted-foreground text-[0.7rem] tracking-[0.1em] uppercase">
+          {caption}
+        </span>
+        {toolbar}
+      </div>
+
+      {children}
+
+      <Separator className="mt-2" />
+
+      <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1.5 pt-2.5">{stats}</div>
+
+      <div className="text-muted-foreground flex flex-wrap items-center gap-x-3.5 gap-y-1.5 pt-2.5 text-[0.75rem] select-none">
+        {legend}
+      </div>
+    </Card>
   )
 }
 
-/** Mirrors whichever mode's layout is about to land, so nothing jumps. */
-function ResultsSkeleton({ simulating }) {
+/** Mirrors the shape above so nothing shifts when the data lands. */
+function ResultsSkeleton() {
   return (
-    <div className="flex flex-col gap-4" aria-hidden>
-      <div className="space-y-2 px-0.5 py-1">
+    <div className="flex flex-col gap-3" aria-hidden>
+      <div className="space-y-2 px-1">
         <Skeleton className="h-3 w-40" />
-        <Skeleton className="h-12 w-64" />
-        {!simulating && <Skeleton className="h-4 w-52" />}
+        <Skeleton className="h-11 w-56" />
       </div>
-
-      <Card className="px-2.5 [--card-spacing:--spacing(2.5)]">
-        <Skeleton className={simulating ? 'h-[345px] w-full' : 'h-[300px] w-full'} />
+      <Card className="gap-0 px-3 [--card-spacing:--spacing(3)]">
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="mt-3 h-[272px] w-full" />
+        <Skeleton className="mt-4 h-4 w-72" />
+        <Skeleton className="mt-3 h-3 w-60" />
       </Card>
-
-      {simulating ? (
-        <Card className="px-2.5 [--card-spacing:--spacing(2.5)]">
-          <Skeleton className="h-[180px] w-full" />
-        </Card>
-      ) : (
-        <div className="grid gap-2.5 min-[460px]:grid-cols-3">
-          <Skeleton className="h-[68px]" />
-          <Skeleton className="h-[68px]" />
-          <Skeleton className="h-[68px]" />
-        </div>
-      )}
     </div>
   )
 }
@@ -140,6 +166,12 @@ function App() {
   // it takes effect immediately instead of waiting for Apply.
   const [mode, setMode] = useState('single')
   const simulating = mode === 'monte'
+
+  // Which plot the Monte Carlo panel is showing. The two are the same ten
+  // thousand runs read along different axes — across time, or collapsed onto
+  // the finish line — so they share a slot rather than stacking.
+  const [view, setView] = useState('time')
+  const outcomes = simulating && view === 'outcomes'
 
   // null means "follow the end of the projection" until the user scrubs.
   const [pinned, setPinned] = useState(null)
@@ -164,8 +196,13 @@ function App() {
   const lastIndex = Math.max(0, rows.length - 1)
   const activeIndex = pinned === null ? lastIndex : Math.min(pinned, lastIndex)
   const active = rows[activeIndex]
+  const finalAge = rows[lastIndex]?.age
 
   const growthPct = active?.balance ? (active.interest_earned / active.balance) * 100 : 0
+
+  // The outcomes plot has no time axis to scrub, so its numbers report the
+  // finish line instead of wherever the cursor was left on the other view.
+  const source = outcomes ? data?.final : active
 
   // These chase their targets frame by frame: a single Apply reads as a
   // count-up, and dragging the chart reads as the numbers trailing the
@@ -176,14 +213,14 @@ function App() {
   const growth = useAnimatedNumber(growthPct)
 
   const odds = useAnimatedNumber(data?.probability_target ?? 0)
-  const median = useAnimatedNumber(active?.p50 ?? 0)
-  const low = useAnimatedNumber(active?.p5 ?? 0)
-  const high = useAnimatedNumber(active?.p95 ?? 0)
+  const low = useAnimatedNumber(source?.p5 ?? 0)
+  const median = useAnimatedNumber(source?.p50 ?? 0)
+  const high = useAnimatedNumber(source?.p95 ?? 0)
 
   const years = toNumber(draft.endAge) - toNumber(draft.startAge)
 
   return (
-    <div className="mx-auto max-w-[1040px] px-[18px] pt-7 pb-18">
+    <div className="mx-auto max-w-[1100px] px-[18px] pt-6 pb-16">
       <header className="mb-5">
         <a
           href={SITE_URL}
@@ -193,21 +230,21 @@ function App() {
           Eamon Cobb
         </a>
 
-        <h1 className="font-mono text-[clamp(1.6rem,6vw,2.3rem)] font-semibold tracking-[-0.03em]">
+        <h1 className="font-mono text-[clamp(1.5rem,5vw,2rem)] font-semibold tracking-[-0.03em]">
           Investment <span className="text-primary">Planner</span>
         </h1>
       </header>
 
-      <main className="grid items-start gap-[18px] md:grid-cols-[310px_1fr] md:gap-6">
+      <main className="grid items-start gap-[18px] md:grid-cols-[300px_1fr] md:gap-5">
         {/* Sticky only where there is a second column to sit beside; on one
             column a sticky panel overlaps the content below it. Dragging a
             slider should not start selecting its label text, but the value
             fields stay selectable so they can still be edited and copied. */}
-        <Card className="md:sticky md:top-5">
+        <Card className="md:sticky md:top-4">
           <form
             aria-label="Assumptions"
             onSubmit={apply}
-            className="flex touch-manipulation flex-col gap-5 px-5 select-none"
+            className="flex touch-manipulation flex-col gap-4 px-5 select-none"
           >
             <Field
               label="Starting amount"
@@ -343,145 +380,132 @@ function App() {
             </Alert>
           )}
 
-          {!error && !data && <ResultsSkeleton simulating={simulating} />}
+          {!error && !data && <ResultsSkeleton />}
 
           {!error && data && !simulating && (
             <>
-              <div
-                className={`flex flex-col gap-0.5 px-0.5 py-1 transition-opacity duration-200 ${
-                  pending ? 'opacity-55' : ''
-                }`}
+              <Headline
+                pending={pending}
+                eyebrow={`Balance at age ${active.age}`}
+                value={money(balance)}
+                detail={
+                  <>
+                    {money(interest)} of that is growth
+                    <span className="bg-secondary text-primary rounded-full px-2 py-0.5 font-mono text-[0.75rem] tabular-nums">
+                      {Math.round(growth)}%
+                    </span>
+                  </>
+                }
+              />
+
+              <ChartPanel
+                pending={pending}
+                caption={`At age ${active.age}`}
+                stats={
+                  <>
+                    <Stat note="You put in" value={money(contributed)} />
+                    <Stat note="Growth" value={money(interest)} accent />
+                    <Stat note="Total" value={money(balance)} />
+                  </>
+                }
+                legend={
+                  <>
+                    <Swatch className="bg-contributed">You put in</Swatch>
+                    <Swatch className="bg-primary/30">Growth</Swatch>
+                    <span className="ml-auto hidden sm:inline">Drag across the chart</span>
+                  </>
+                }
               >
-                <span className="text-muted-foreground text-[0.8rem] tracking-[0.09em] uppercase">
-                  Balance at age {active.age}
-                </span>
-                {/* Tabular figures stop the number jittering as it animates. */}
-                <strong className="font-mono text-[clamp(2.1rem,9vw,3.4rem)] leading-[1.05] font-semibold tracking-[-0.035em] tabular-nums">
-                  {money(balance)}
-                </strong>
-                <span className="text-muted-foreground mt-1 flex items-center gap-2 text-[0.9rem]">
-                  {money(interest)} of that is growth
-                  <span className="bg-secondary text-primary rounded-full px-2 py-0.5 font-mono text-[0.78rem] tabular-nums">
-                    {Math.round(growth)}%
-                  </span>
-                </span>
-              </div>
-
-              <Card className="gap-0 px-2.5 [--card-spacing:--spacing(2.5)]">
                 <Chart rows={rows} activeIndex={activeIndex} onScrub={setPinned} />
-                <div className="text-muted-foreground flex flex-wrap items-center gap-3.5 px-2 pt-2 pb-0.5 text-[0.78rem] select-none">
-                  <Swatch className="bg-contributed">You put in</Swatch>
-                  <Swatch className="bg-primary/30">Growth</Swatch>
-                  <span className="ml-auto">Drag across the chart</span>
-                </div>
-              </Card>
-
-              <div className="grid gap-2.5 min-[460px]:grid-cols-3">
-                <Split label="You put in" value={money(contributed)} />
-                <Split label="Growth" value={money(interest)} accent />
-                <Split label="Total" value={money(balance)} />
-              </div>
+              </ChartPanel>
             </>
           )}
 
           {!error && data && simulating && (
             <>
-              {/* The headline answers the question in one number; the fan
-                  chart under it is the first thing drawn, and shows where that
-                  number came from. */}
-              <div
-                className={`flex flex-col gap-0.5 px-0.5 py-1 transition-opacity duration-200 ${
-                  pending ? 'opacity-55' : ''
-                }`}
-              >
-                <span className="text-muted-foreground text-[0.8rem] tracking-[0.09em] uppercase">
-                  Odds of reaching {money(data.target)}
-                </span>
-                {/* The supporting line sits beside the number rather than under
-                    it. Stacked it added another row to the tallest block above
-                    the fold, and it wraps below on a narrow screen anyway. */}
-                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-                  <strong className="font-mono text-[clamp(2rem,7vw,3rem)] leading-[1.05] font-semibold tracking-[-0.035em] tabular-nums">
-                    {Math.round(odds)}%
-                  </strong>
-                  <span className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-[0.85rem]">
-                    Typically {money(data.final.p50)} by age {rows[lastIndex].age}
+              <Headline
+                pending={pending}
+                eyebrow={`Odds of reaching ${money(data.target)}`}
+                value={`${Math.round(odds)}%`}
+                detail={
+                  <>
+                    Typically {money(data.final.p50)} by age {finalAge}
                     <Hint label="What the typical outcome means">
                       The middle result, with half the runs finishing above it and half below.
                     </Hint>
-                  </span>
-                </div>
-              </div>
+                  </>
+                }
+              />
 
-              <Card
-                className={`gap-0 px-2.5 [--card-spacing:--spacing(2.5)] transition-opacity duration-200 ${
-                  pending ? 'opacity-55' : ''
-                }`}
-              >
-                <FanChart
-                  rows={rows}
-                  paths={data.sample_paths}
-                  target={data.target}
-                  activeIndex={activeIndex}
-                  onScrub={setPinned}
-                />
-
-                {/* Legend and scrub readouts share one strip: the values are
-                    what the chart says at the scrubbed age, so they belong
-                    against it, and folding them into the same row rather than
-                    a block of their own is what keeps the histogram below in
-                    view. They split onto separate lines on a narrow screen. */}
-                <Separator className="mt-2" />
-
-                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2 px-2 pt-2.5 pb-0.5">
-                  <span className="text-muted-foreground text-[0.68rem] tracking-[0.09em] whitespace-nowrap uppercase">
-                    At age {active.age}
-                  </span>
-                  <Percentile note="5th" value={money(low)} />
-                  <Percentile note="median" value={money(median)} accent />
-                  <Percentile note="95th" value={money(high)} />
-                </div>
-
-                <div className="text-muted-foreground flex flex-wrap items-center gap-x-3.5 gap-y-1.5 px-2 pt-2.5 text-[0.75rem] select-none">
-                  <Swatch line className="bg-(--median-line)">
-                    Median
-                  </Swatch>
-                  <Swatch className="bg-(--band-inner)">Middle 50%</Swatch>
-                  <Swatch className="bg-(--band-outer)">5th to 95th</Swatch>
-                  <Swatch line className="bg-(--path-line)">
-                    Sample runs
-                  </Swatch>
-                  <Swatch line className="bg-(--contributed-line)">
-                    You put in
-                  </Swatch>
-                  <span className="ml-auto hidden sm:inline">Drag across the chart</span>
-                </div>
-              </Card>
-
-              {/* The shaded share of these bars *is* the percentage in the
-                  headline, which is why the caption talks in runs rather than
-                  repeating the odds. */}
-              <Card
-                className={`gap-0 px-2.5 [--card-spacing:--spacing(2.5)] transition-opacity duration-200 ${
-                  pending ? 'opacity-55' : ''
-                }`}
-              >
-                <Histogram
-                  edges={data.histogram.edges}
-                  counts={data.histogram.counts}
-                  target={data.target}
-                  median={data.final.p50}
-                />
-                <p className="text-muted-foreground px-2 pt-1.5 pb-0.5 text-[0.76rem] select-none">
-                  {data.paths_simulated.toLocaleString()} runs by age {rows[lastIndex].age}.{' '}
-                  {data.probability_below_contributed > 0 && (
+              <ChartPanel
+                pending={pending}
+                caption={outcomes ? `By age ${finalAge}` : `At age ${active.age}`}
+                toolbar={
+                  <Tabs value={view} onValueChange={setView}>
+                    <TabsList className="bg-secondary h-7">
+                      <TabsTrigger value="time" className="data-active:bg-card text-[0.75rem]">
+                        Over time
+                      </TabsTrigger>
+                      <TabsTrigger value="outcomes" className="data-active:bg-card text-[0.75rem]">
+                        Outcomes
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                }
+                stats={
+                  <>
+                    <Stat note="5th" value={money(low)} />
+                    <Stat note="Median" value={money(median)} accent />
+                    <Stat note="95th" value={money(high)} />
+                  </>
+                }
+                legend={
+                  outcomes ? (
                     <>
-                      {data.probability_below_contributed}% finished below the{' '}
-                      {money(data.total_contributed)} put in.
+                      <Swatch className="bg-(--band-inner)">Reached the target</Swatch>
+                      <Swatch className="bg-contributed">Fell short</Swatch>
+                      <span className="ml-auto">
+                        {data.probability_below_contributed > 0 &&
+                          `${data.probability_below_contributed}% finished below the ${money(
+                            data.total_contributed,
+                          )} put in`}
+                      </span>
                     </>
-                  )}
-                </p>
-              </Card>
+                  ) : (
+                    <>
+                      <Swatch line className="bg-(--median-line)">
+                        Median
+                      </Swatch>
+                      <Swatch className="bg-(--band-inner)">Middle 50%</Swatch>
+                      <Swatch className="bg-(--band-outer)">5th to 95th</Swatch>
+                      <Swatch line className="bg-(--path-line)">
+                        Sample runs
+                      </Swatch>
+                      <Swatch line className="bg-(--contributed-line)">
+                        You put in
+                      </Swatch>
+                      <span className="ml-auto hidden sm:inline">Drag across the chart</span>
+                    </>
+                  )
+                }
+              >
+                {outcomes ? (
+                  <Histogram
+                    edges={data.histogram.edges}
+                    counts={data.histogram.counts}
+                    target={data.target}
+                    median={data.final.p50}
+                  />
+                ) : (
+                  <FanChart
+                    rows={rows}
+                    paths={data.sample_paths}
+                    target={data.target}
+                    activeIndex={activeIndex}
+                    onScrub={setPinned}
+                  />
+                )}
+              </ChartPanel>
             </>
           )}
         </section>
