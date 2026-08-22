@@ -165,6 +165,140 @@
     }
   }
 
+  /* ── Monte Carlo ──────────────────────────────────────────────────────
+     The fan chart reuses .chart for sizing and interaction; only the drawn
+     series below are its own. Both bands are the brand green at different
+     strengths rather than two different hues, so they read as one
+     distribution thinning out towards its edges instead of two categories. */
+  .fan-band {
+    stroke: none;
+    transform-box: fill-box;
+    transform-origin: bottom;
+    animation: chart-rise 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Strength lives on fill-opacity rather than opacity because chart-rise
+     animates opacity to 1 and runs with fill-mode both, so an `opacity` here
+     would be overridden by the animation's resting state the moment it
+     finished — which paints the bands as solid blocks. The two multiply, so
+     fill-opacity survives it. .fan-path dodges the same trap via
+     stroke-opacity. */
+  .fan-band-outer {
+    fill: var(--primary);
+    fill-opacity: 0.14;
+  }
+
+  .fan-band-inner {
+    fill: var(--primary);
+    fill-opacity: 0.26;
+  }
+
+  /* Thin and faint on purpose. Twelve of these at full strength would read as
+     the subject of the chart rather than as texture behind the median. */
+  .fan-path {
+    fill: none;
+    stroke: var(--accent-bright);
+    stroke-width: 1;
+    stroke-opacity: 0.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: chart-draw 900ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation-delay: calc(var(--i) * 45ms);
+  }
+
+  .fan-median {
+    fill: none;
+    stroke: var(--primary);
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    /* Held back until the paths it summarises have drawn in. */
+    animation: chart-draw 700ms cubic-bezier(0.22, 1, 0.36, 1) 260ms forwards;
+  }
+
+  .fan-target line {
+    stroke: var(--foreground);
+    stroke-width: 1;
+    stroke-dasharray: 4 4;
+    opacity: 0.4;
+  }
+
+  .fan-target text {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    fill: var(--muted-foreground);
+  }
+
+  .hist {
+    display: block;
+    width: 100%;
+    height: auto;
+    user-select: none;
+  }
+
+  .hist-bar {
+    fill: var(--contributed);
+    transform-box: fill-box;
+    transform-origin: bottom;
+    animation: hist-grow 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(var(--i) * 12ms);
+  }
+
+  .hist-bar-hit {
+    fill: var(--primary);
+    /* fill-opacity for the same reason as the fan bands: hist-grow ends on
+       opacity 1 and would otherwise win. */
+    fill-opacity: 0.85;
+  }
+
+  .hist-base {
+    stroke: var(--border);
+    stroke-width: 1;
+  }
+
+  .hist-mark line {
+    stroke-width: 1;
+  }
+
+  .hist-mark text {
+    font-family: var(--font-mono);
+    font-size: 10px;
+  }
+
+  .hist-mark-target line {
+    stroke: var(--foreground);
+    stroke-dasharray: 3 3;
+    opacity: 0.55;
+  }
+
+  .hist-mark-target text {
+    fill: var(--muted-foreground);
+  }
+
+  .hist-mark-median line {
+    stroke: var(--accent-bright);
+    opacity: 0.8;
+  }
+
+  .hist-mark-median text {
+    fill: var(--accent-bright);
+  }
+
+  @keyframes hist-grow {
+    from {
+      opacity: 0;
+      transform: scaleY(0);
+    }
+    to {
+      opacity: 1;
+      transform: scaleY(1);
+    }
+  }
+
   .chart-tick {
     font-family: var(--font-mono);
     font-size: 11px;
@@ -203,11 +337,17 @@
     transition-duration: 0.001ms !important;
   }
 
-  /* The chart's draw-in leaves the line hidden if its animation is cut to
-     nothing, so those are cancelled outright rather than shortened. */
+  /* The draw-in animations leave their lines hidden if cut to nothing: the
+     dash offset that hides the stroke is the animation's start state, not a
+     resting one. These are cancelled outright rather than shortened, and the
+     offset reset by hand. */
   .chart-area,
   .chart-contributed,
-  .chart-line {
+  .chart-line,
+  .fan-band,
+  .fan-path,
+  .fan-median,
+  .hist-bar {
     animation: none !important;
     stroke-dashoffset: 0;
   }

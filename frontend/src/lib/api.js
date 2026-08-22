@@ -5,8 +5,8 @@
 // eamoncobb.com/calculate and miss the prefix entirely when proxied.
 const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:8000' : '.')
 
-export async function calculateGrowth(payload, signal) {
-  const res = await fetch(`${API_URL}/calculate`, {
+async function post(path, payload, signal) {
+  const res = await fetch(`${API_URL}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -19,3 +19,7 @@ export async function calculateGrowth(payload, signal) {
 
   return res.json()
 }
+
+export const calculateGrowth = (payload, signal) => post('/calculate', payload, signal)
+
+export const simulateGrowth = (payload, signal) => post('/simulate', payload, signal)

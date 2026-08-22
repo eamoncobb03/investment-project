@@ -9,7 +9,19 @@ import { sanitizeNumeric } from '@/lib/format'
  * keypad on phones and nothing else. That is why this uses a bare <input>
  * rather than the shadcn Input, whose sizing assumes a full-width control.
  */
-export default function Field({ label, prefix, suffix, value, onChange, min, max, step, sliderMax }) {
+export default function Field({
+  label,
+  prefix,
+  suffix,
+  value,
+  onChange,
+  min,
+  max,
+  step,
+  sliderMax,
+  // Seven-figure values overflow the default width and get clipped mid-number.
+  wide,
+}) {
   const numeric = parseFloat(value)
   const safe = Number.isFinite(numeric) ? numeric : min
   const id = label.toLowerCase().replace(/\s+/g, '-')
@@ -37,7 +49,7 @@ export default function Field({ label, prefix, suffix, value, onChange, min, max
             }}
             // 16px keeps iOS from zooming the page when the field takes focus,
             // and the value stays selectable while the panel around it is not.
-            className="w-[6.5ch] min-w-0 border-0 bg-transparent p-0 text-right font-mono text-[16px] tabular-nums outline-none select-text"
+            className={`${wide ? 'w-[9.5ch]' : 'w-[6.5ch]'} min-w-0 border-0 bg-transparent p-0 text-right font-mono text-[16px] tabular-nums outline-none select-text`}
           />
           {suffix && <span className="text-muted-foreground font-mono text-sm">{suffix}</span>}
         </div>

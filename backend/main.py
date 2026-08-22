@@ -1,6 +1,9 @@
+import hashlib
+import math
 import os
 from pathlib import Path
 
+import numpy as np
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -126,10 +129,188 @@ def calculate_growth(data: InvestmentQuery):
     }
 
 
-# 7. Serve the built frontend for everything the routes above don't claim.
-#    Registered last: FastAPI matches routes in registration order, so
-#    /calculate and /health above always take priority over this mount,
-#    regardless of what path a request comes in on.
+# 7. The Monte Carlo route.
+#
+#    /calculate above answers "what if the return is exactly this every single
+#    year", which never happens. This answers the question people actually
+#    have: given that returns vary, what is the spread of outcomes, and how
+#    likely is the one I care about?
+#
+#    Each month's growth is a multiplicative factor exp(drift + shock) with a
+#    normally distributed shock, i.e. geometric Brownian motion. Two reasons
+#    that beats perturbing the rate additively: a multiplicative factor can
+#    never drive the balance below zero, and log-normal terminal values are
+#    the standard model for a diversified portfolio.
+#
+#    drift is pinned to log1p(monthly_rate) - sigma^2*dt/2 rather than the
+#    textbook (mu - sigma^2/2)*dt so that the two endpoints agree. It makes the
+#    expected monthly growth factor exactly 1 + monthly_rate, so this
+#    simulation's mean matches what /calculate returns for the same
+#    annual_rate, and the two agree to the cent when volatility is zero and
+#    there is nothing left to average over.
+#
+#    That match is in expectation, not per run. The sample mean of a
+#    right-skewed distribution is carried by its rare best paths, so the
+#    realised mean wanders further from the deterministic figure as volatility
+#    climbs — a fraction of a percent at 15%, but tens of percent at 60%, where
+#    ten thousand draws are no longer enough to pin a mean that a handful of
+#    outcomes dominate. The median is the stable statistic here, which is why
+#    it, not the mean, is what the UI leads with.
+#
+#    The gap between the two is the point of the whole mode: a right-skewed
+#    distribution has its mean above its middle, so the single-rate projection
+#    is a luckier outcome than the typical one, and increasingly so the more
+#    volatile the portfolio.
+N_PATHS = 10_000
+N_SAMPLE_PATHS = 12
+N_BINS = 36
+BAND_PERCENTILES = (5, 25, 50, 75, 95)
+
+
+class SimulationQuery(BaseModel):
+    initial_amount: float = Field(ge=0, le=MAX_INITIAL, allow_inf_nan=False)
+    monthly_contribution: float = Field(ge=0, le=MAX_MONTHLY, allow_inf_nan=False)
+    annual_rate: float = Field(
+        ge=0, le=100, allow_inf_nan=False, description="Expected annual return in percent"
+    )
+    volatility: float = Field(
+        ge=0, le=100, allow_inf_nan=False, description="Annual standard deviation in percent"
+    )
+    years: int = Field(gt=0, le=100)
+    target: float = Field(
+        ge=0, le=MAX_INITIAL, allow_inf_nan=False, description="Balance to report odds against"
+    )
+
+
+def _seed(data: SimulationQuery) -> int:
+    """
+    Same assumptions in, same paths out. Without this, re-applying an unchanged
+    form would reshuffle every squiggle on the chart and read as a glitch.
+
+    target is deliberately left out of the hash: it is measured against a
+    finished simulation rather than being an input to one, so dragging it
+    should slide the threshold line across a fixed picture instead of
+    redrawing the picture underneath it.
+    """
+    raw = "|".join(
+        str(value)
+        for value in (
+            data.initial_amount,
+            data.monthly_contribution,
+            data.annual_rate,
+            data.volatility,
+            data.years,
+        )
+    )
+    return int.from_bytes(hashlib.sha256(raw.encode()).digest()[:8], "big")
+
+
+@app.post("/simulate")
+def simulate_growth(data: SimulationQuery):
+    rng = np.random.default_rng(_seed(data))
+
+    dt = 1 / 12
+    monthly_rate = (data.annual_rate / 100) / 12
+    sigma = data.volatility / 100
+    drift = math.log1p(monthly_rate) - 0.5 * sigma**2 * dt
+    shock_scale = sigma * math.sqrt(dt)
+    total_months = data.years * 12
+
+    balances = np.full(N_PATHS, data.initial_amount, dtype=np.float64)
+    contributed = data.initial_amount
+
+    # Yearly snapshots only. Every month of every path would be twelve times
+    # the memory to carry detail no chart draws, and the shocks are generated
+    # a month at a time for the same reason: the full (months, paths) matrix
+    # of normals reaches ~100 MB at the input caps, while one month of them
+    # is 80 KB.
+    snapshots = [balances.copy()]
+    contributions = [contributed]
+
+    for month in range(1, total_months + 1):
+        shocks = rng.standard_normal(N_PATHS)
+        balances = (balances + data.monthly_contribution) * np.exp(
+            drift + shock_scale * shocks
+        )
+        contributed += data.monthly_contribution
+
+        if month % 12 == 0:
+            snapshots.append(balances.copy())
+            contributions.append(contributed)
+
+    # (years + 1, N_PATHS)
+    matrix = np.stack(snapshots)
+    final = matrix[-1]
+
+    # (5, years + 1): one row per percentile in BAND_PERCENTILES.
+    bands = np.percentile(matrix, BAND_PERCENTILES, axis=1)
+
+    # A plain random sample rather than one spread evenly across the outcome
+    # range. These are drawn as individual paths to show that a real future is
+    # jagged rather than smooth, and picking one from each percentile bracket
+    # would suggest extremes turn up far more often than they do. The bands
+    # behind them are what communicate the range.
+    sample = rng.choice(N_PATHS, size=min(N_SAMPLE_PATHS, N_PATHS), replace=False)
+    paths = matrix[:, sample].T
+
+    # Bins are spaced geometrically, not evenly, because the thing being
+    # binned is roughly log-normal: on a linear axis the entire distribution
+    # piles into the leftmost few bars while a thin tail stretches the rest of
+    # the axis across empty space. Log spacing is the display this shape asks
+    # for, and it comes out as a readable near-bell instead.
+    #
+    # The ends are trimmed to the half-percentiles for the same reason the
+    # bins are geometric: one extreme run should not set the scale for all ten
+    # thousand. Trimmed values fold into the end bars rather than being
+    # dropped, so the counts still total N_PATHS. The floors keep geomspace
+    # defined when every path lands on the same number, which happens whenever
+    # volatility is zero.
+    axis_low = max(float(np.percentile(final, 0.5)), 1.0)
+    axis_high = max(float(np.percentile(final, 99.5)), axis_low * 1.001)
+    edges = np.geomspace(axis_low, axis_high, N_BINS + 1)
+    counts, _ = np.histogram(np.clip(final, axis_low, axis_high), bins=edges)
+
+    def cash(value) -> float:
+        return round(float(value), 2)
+
+    return {
+        "paths_simulated": N_PATHS,
+        "yearly_breakdown": [
+            {
+                "year": year,
+                "total_contributed": cash(contributions[year]),
+                "p5": cash(bands[0][year]),
+                "p25": cash(bands[1][year]),
+                "p50": cash(bands[2][year]),
+                "p75": cash(bands[3][year]),
+                "p95": cash(bands[4][year]),
+            }
+            for year in range(len(contributions))
+        ],
+        "sample_paths": [[cash(value) for value in path] for path in paths],
+        "total_contributed": cash(contributed),
+        "target": cash(data.target),
+        "final": {
+            "mean": cash(final.mean()),
+            "p5": cash(bands[0][-1]),
+            "p25": cash(bands[1][-1]),
+            "p50": cash(bands[2][-1]),
+            "p75": cash(bands[3][-1]),
+            "p95": cash(bands[4][-1]),
+        },
+        "probability_target": round(float((final >= data.target).mean()) * 100, 1),
+        "probability_below_contributed": round(float((final < contributed).mean()) * 100, 1),
+        "histogram": {
+            "edges": [cash(edge) for edge in edges],
+            "counts": [int(count) for count in counts],
+        },
+    }
+
+
+# 8. Serve the built frontend for everything the routes above don't claim.
+#    Registered last: FastAPI matches routes in registration order, so the
+#    routes above always take priority over this mount, regardless of what
+#    path a request comes in on.
 #
 #    Only mounted when the build actually exists. Locally that's the Vite
 #    dev server's job (npm run dev on :5173), not this API — frontend/dist
