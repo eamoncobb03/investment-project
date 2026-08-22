@@ -98,26 +98,37 @@ function Percentile({ note, value, accent }) {
   )
 }
 
-function ResultsSkeleton({ extra }) {
+/** Mirrors whichever mode's layout is about to land, so nothing jumps. */
+function ResultsSkeleton({ simulating }) {
   return (
     <div className="flex flex-col gap-4" aria-hidden>
-      <div className="space-y-2 px-0.5 py-1">
-        <Skeleton className="h-3 w-40" />
-        <Skeleton className="h-12 w-64" />
-        <Skeleton className="h-4 w-52" />
-      </div>
-      <Card className="px-2.5 [--card-spacing:--spacing(2.5)]">
-        <Skeleton className={extra ? 'h-[340px] w-full' : 'h-[300px] w-full'} />
-      </Card>
-      <div className="grid gap-2.5 min-[460px]:grid-cols-3">
-        <Skeleton className="h-[68px]" />
-        <Skeleton className="h-[68px]" />
-        <Skeleton className="h-[68px]" />
-      </div>
-      {extra && (
-        <Card className="px-2.5 [--card-spacing:--spacing(2.5)]">
-          <Skeleton className="h-[170px] w-full" />
+      {simulating ? (
+        <Card className="grid items-center gap-x-6 gap-y-3 px-4 [--card-spacing:--spacing(4)] md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]">
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-40" />
+            <Skeleton className="h-11 w-28" />
+            <Skeleton className="h-4 w-44" />
+          </div>
+          <Skeleton className="h-[180px] w-full" />
         </Card>
+      ) : (
+        <div className="space-y-2 px-0.5 py-1">
+          <Skeleton className="h-3 w-40" />
+          <Skeleton className="h-12 w-64" />
+          <Skeleton className="h-4 w-52" />
+        </div>
+      )}
+
+      <Card className="px-2.5 [--card-spacing:--spacing(2.5)]">
+        <Skeleton className={simulating ? 'h-[380px] w-full' : 'h-[300px] w-full'} />
+      </Card>
+
+      {!simulating && (
+        <div className="grid gap-2.5 min-[460px]:grid-cols-3">
+          <Skeleton className="h-[68px]" />
+          <Skeleton className="h-[68px]" />
+          <Skeleton className="h-[68px]" />
+        </div>
       )}
     </div>
   )
@@ -237,8 +248,8 @@ function App() {
               step={0.1}
               hint={
                 simulating
-                  ? 'What the portfolio earns per year on average, before inflation. Individual years land above and below it. A broad stock index has historically averaged somewhere around 7 to 10%.'
-                  : 'What the portfolio earns every year, before inflation. Real returns are never this steady, which is what the Monte Carlo mode is for.'
+                  ? 'The yearly return averaged over the whole run, which individual years land above and below.'
+                  : 'The return earned every single year, before inflation.'
               }
             />
 
@@ -253,7 +264,7 @@ function App() {
                   max={100}
                   sliderMax={40}
                   step={0.5}
-                  hint="How much returns swing from year to year. A broad stock index sits near 15%; bonds are lower, a single stock much higher. Raising it widens the range of outcomes and pulls the typical result down, even though the average return has not changed."
+                  hint="How much returns swing from year to year, around 15% for a broad stock index."
                 />
                 <Field
                   label="Target"
@@ -265,7 +276,7 @@ function App() {
                   max={1000000000}
                   sliderMax={5000000}
                   step={25000}
-                  hint="The number the odds at the top are measured against. It has no effect on the simulation itself, only on how many of its runs count as clearing the bar."
+                  hint="The balance the odds above are measured against."
                 />
               </>
             )}
@@ -340,7 +351,7 @@ function App() {
             </Alert>
           )}
 
-          {!error && !data && <ResultsSkeleton extra={simulating} />}
+          {!error && !data && <ResultsSkeleton simulating={simulating} />}
 
           {!error && data && !simulating && (
             <>
@@ -383,33 +394,53 @@ function App() {
 
           {!error && data && simulating && (
             <>
-              <div
-                className={`flex flex-col gap-0.5 px-0.5 py-1 transition-opacity duration-200 ${
+              {/* The odds and the histogram are one fact, not two: the shaded
+                  share of those bars *is* the percentage beside them. Pairing
+                  them says so, and it buys back the whole card and heading the
+                  histogram used to cost, which is what kept pushing it under
+                  the fold on a laptop. */}
+              <Card
+                className={`grid items-center gap-x-6 gap-y-3 px-4 [--card-spacing:--spacing(4)] transition-opacity duration-200 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)] ${
                   pending ? 'opacity-55' : ''
                 }`}
               >
-                <span className="text-muted-foreground text-[0.8rem] tracking-[0.09em] uppercase">
-                  Odds of reaching {money(data.target)}
-                </span>
-                <strong className="font-mono text-[clamp(2.1rem,9vw,3.4rem)] leading-[1.05] font-semibold tracking-[-0.035em] tabular-nums">
-                  {Math.round(odds)}%
-                </strong>
-                <span className="text-muted-foreground mt-1 flex flex-wrap items-center gap-1.5 text-[0.9rem]">
-                  Across {data.paths_simulated.toLocaleString()} simulated futures. The typical one
-                  ends at {money(data.final.p50)} by age {rows[lastIndex].age}.
-                  <Hint label="What the typical outcome means">
-                    The middle result: half the runs finished above it, half below. It sits lower
-                    than a plain average, because a handful of very lucky runs drag an average
-                    upward while most outcomes stay nearer this number.
-                  </Hint>
-                </span>
-              </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-muted-foreground text-[0.8rem] tracking-[0.09em] uppercase">
+                    Odds of reaching {money(data.target)}
+                  </span>
+                  <strong className="font-mono text-[clamp(2.1rem,7vw,3rem)] leading-[1.05] font-semibold tracking-[-0.035em] tabular-nums">
+                    {Math.round(odds)}%
+                  </strong>
+                  <span className="text-muted-foreground mt-1 flex flex-wrap items-center gap-1.5 text-[0.85rem]">
+                    Typically {money(data.final.p50)} by age {rows[lastIndex].age}
+                    <Hint label="What the typical outcome means">
+                      The middle result, with half the runs finishing above it and half below.
+                    </Hint>
+                  </span>
+                </div>
+
+                <div className="min-w-0">
+                  <Histogram
+                    edges={data.histogram.edges}
+                    counts={data.histogram.counts}
+                    target={data.target}
+                    median={data.final.p50}
+                  />
+                  <p className="text-muted-foreground pt-1 text-[0.76rem] select-none">
+                    {data.paths_simulated.toLocaleString()} runs by age {rows[lastIndex].age}.{' '}
+                    {data.probability_below_contributed > 0 && (
+                      <>
+                        {data.probability_below_contributed}% finished below the{' '}
+                        {money(data.total_contributed)} put in.
+                      </>
+                    )}
+                  </p>
+                </div>
+              </Card>
 
               {/* The percentile readouts live inside this card rather than in a
                   row of their own. They are tied to wherever the chart is
-                  scrubbed, so they belong next to it, and folding them in
-                  removes a card plus a gap — enough to bring the histogram
-                  below into view without scrolling on a laptop screen. */}
+                  scrubbed, so they belong next to it. */}
               <Card className="gap-0 px-2.5 [--card-spacing:--spacing(2.5)]">
                 <FanChart
                   rows={rows}
@@ -445,24 +476,6 @@ function App() {
                     <Percentile note="95th" value={money(high)} />
                   </div>
                 </div>
-              </Card>
-
-              <Card className="gap-0 px-2.5 [--card-spacing:--spacing(2.5)]">
-                <Histogram
-                  edges={data.histogram.edges}
-                  counts={data.histogram.counts}
-                  target={data.target}
-                  median={data.final.p50}
-                />
-                <p className="text-muted-foreground px-2 pt-2 pb-0.5 text-[0.78rem] select-none">
-                  Where every run landed by age {rows[lastIndex].age}.{' '}
-                  {data.probability_below_contributed > 0 && (
-                    <>
-                      {data.probability_below_contributed}% finished below the{' '}
-                      {money(data.total_contributed)} put in.
-                    </>
-                  )}
-                </p>
               </Card>
             </>
           )}

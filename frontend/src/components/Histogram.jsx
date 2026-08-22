@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { moneyCompact } from '@/lib/format'
 
-const W = 640
-const H = 170
-const PAD = { top: 16, right: 14, bottom: 28, left: 14 }
+// Squarer than the fan chart's box on purpose. This one sits in a column
+// roughly half the page width, and a 640-wide viewBox scaled down to fit left
+// it about ninety pixels tall, which is too flat to read a distribution off.
+const W = 420
+const H = 200
+const PAD = { top: 18, right: 10, bottom: 26, left: 10 }
 const IW = W - PAD.left - PAD.right
 const IH = H - PAD.top - PAD.bottom
 
@@ -91,17 +94,18 @@ export default function Histogram({ edges, counts, target, median }) {
       {inRange(median) && (
         <g className="hist-mark hist-mark-median">
           <line x1={x(median)} x2={x(median)} y1={PAD.top} y2={PAD.top + IH} />
-          <text x={x(median)} y={PAD.top + 12} textAnchor="middle">
+          <text x={x(median)} y={PAD.top + 18} textAnchor="middle">
             median
           </text>
         </g>
       )}
 
-      {[0, 0.25, 0.5, 0.75, 1].map((f) => (
+      {/* Three labels rather than five: at this width five collided. */}
+      {[0, 0.5, 1].map((f) => (
         <text
           key={f}
           x={PAD.left + f * IW}
-          y={H - 9}
+          y={H - 8}
           className="chart-tick"
           textAnchor={f === 0 ? 'start' : f === 1 ? 'end' : 'middle'}
         >
