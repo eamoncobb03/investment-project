@@ -5,8 +5,8 @@ import { moneyCompact } from '@/lib/format'
 // roughly half the page width, and a 640-wide viewBox scaled down to fit left
 // it about ninety pixels tall, which is too flat to read a distribution off.
 const W = 420
-const H = 200
-const PAD = { top: 18, right: 10, bottom: 26, left: 10 }
+const H = 186
+const PAD = { top: 18, right: 10, bottom: 24, left: 10 }
 const IW = W - PAD.left - PAD.right
 const IH = H - PAD.top - PAD.bottom
 

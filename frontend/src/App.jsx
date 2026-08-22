@@ -75,26 +75,28 @@ function Swatch({ className, line, children }) {
 }
 
 /**
- * One scrub-linked percentile readout, sized to sit inside the chart card.
+ * One scrub-linked percentile readout.
  *
- * The age is printed once above the row rather than on each of the three, so a
- * seven-figure value gets the whole column width. Repeating it here pushed the
- * label onto two lines and truncated the number beside it on a phone.
+ * Label and value sit on the same line rather than stacked. Stacked, the three
+ * of them plus a heading cost about seventy-five vertical pixels inside the
+ * chart card, which was enough on its own to push the histogram below it off a
+ * laptop screen. Inline they cost roughly a third of that, and they wrap onto
+ * a second line on a phone instead of squeezing three columns into 375px.
  */
 function Percentile({ note, value, accent }) {
   return (
-    <div className="flex min-w-0 flex-col gap-0.5">
+    <span className="flex items-baseline gap-1.5 whitespace-nowrap">
       <span className="text-muted-foreground text-[0.68rem] tracking-[0.07em] uppercase">
         {note}
       </span>
       <strong
-        className={`truncate font-mono text-[0.9rem] font-semibold tabular-nums sm:text-[0.95rem] ${
+        className={`font-mono text-[0.85rem] font-semibold tabular-nums ${
           accent ? 'text-primary' : ''
         }`}
       >
         {value}
       </strong>
-    </div>
+    </span>
   )
 }
 
@@ -102,16 +104,7 @@ function Percentile({ note, value, accent }) {
 function ResultsSkeleton({ simulating }) {
   return (
     <div className="flex flex-col gap-4" aria-hidden>
-      {simulating ? (
-        <Card className="grid items-center gap-x-6 gap-y-3 px-4 [--card-spacing:--spacing(4)] md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]">
-          <div className="space-y-2">
-            <Skeleton className="h-3 w-40" />
-            <Skeleton className="h-11 w-28" />
-            <Skeleton className="h-4 w-44" />
-          </div>
-          <Skeleton className="h-[180px] w-full" />
-        </Card>
-      ) : (
+      {!simulating && (
         <div className="space-y-2 px-0.5 py-1">
           <Skeleton className="h-3 w-40" />
           <Skeleton className="h-12 w-64" />
@@ -120,10 +113,19 @@ function ResultsSkeleton({ simulating }) {
       )}
 
       <Card className="px-2.5 [--card-spacing:--spacing(2.5)]">
-        <Skeleton className={simulating ? 'h-[380px] w-full' : 'h-[300px] w-full'} />
+        <Skeleton className={simulating ? 'h-[345px] w-full' : 'h-[300px] w-full'} />
       </Card>
 
-      {!simulating && (
+      {simulating ? (
+        <Card className="grid items-center gap-x-6 gap-y-3 px-4 [--card-spacing:--spacing(4)] md:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-40" />
+            <Skeleton className="h-11 w-28" />
+            <Skeleton className="h-4 w-44" />
+          </div>
+          <Skeleton className="h-[168px] w-full" />
+        </Card>
+      ) : (
         <div className="grid gap-2.5 min-[460px]:grid-cols-3">
           <Skeleton className="h-[68px]" />
           <Skeleton className="h-[68px]" />
@@ -189,10 +191,10 @@ function App() {
 
   return (
     <div className="mx-auto max-w-[1040px] px-[18px] pt-7 pb-18">
-      <header className="mb-6">
+      <header className="mb-5">
         <a
           href={SITE_URL}
-          className="text-muted-foreground hover:text-primary group mb-5 inline-flex items-center gap-1.5 text-sm transition-colors"
+          className="text-muted-foreground hover:text-primary group mb-4 inline-flex items-center gap-1.5 text-sm transition-colors"
         >
           <ArrowLeftIcon className="size-3.5 transition-transform duration-300 group-hover:-translate-x-0.5" />
           Eamon Cobb
@@ -394,13 +396,59 @@ function App() {
 
           {!error && data && simulating && (
             <>
+              {/* The fan chart leads: it is the thing this mode exists to
+                  show. Everything below it is either a summary of it or a
+                  cross-section through it. */}
+              <Card
+                className={`gap-0 px-2.5 [--card-spacing:--spacing(2.5)] transition-opacity duration-200 ${
+                  pending ? 'opacity-55' : ''
+                }`}
+              >
+                <FanChart
+                  rows={rows}
+                  paths={data.sample_paths}
+                  target={data.target}
+                  activeIndex={activeIndex}
+                  onScrub={setPinned}
+                />
+
+                {/* Legend and scrub readouts share one strip: the values are
+                    what the chart says at the scrubbed age, so they belong
+                    against it, and folding them into the same row rather than
+                    a block of their own is what keeps the histogram below in
+                    view. They split onto separate lines on a narrow screen. */}
+                <Separator className="mt-2" />
+
+                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2 px-2 pt-2.5 pb-0.5">
+                  <span className="text-muted-foreground text-[0.68rem] tracking-[0.09em] whitespace-nowrap uppercase">
+                    At age {active.age}
+                  </span>
+                  <Percentile note="5th" value={money(low)} />
+                  <Percentile note="median" value={money(median)} accent />
+                  <Percentile note="95th" value={money(high)} />
+                </div>
+
+                <div className="text-muted-foreground flex flex-wrap items-center gap-x-3.5 gap-y-1.5 px-2 pt-2.5 text-[0.75rem] select-none">
+                  <Swatch line className="bg-(--median-line)">
+                    Median
+                  </Swatch>
+                  <Swatch className="bg-(--band-inner)">Middle 50%</Swatch>
+                  <Swatch className="bg-(--band-outer)">5th to 95th</Swatch>
+                  <Swatch line className="bg-(--path-line)">
+                    Sample runs
+                  </Swatch>
+                  <Swatch line className="bg-(--contributed-line)">
+                    You put in
+                  </Swatch>
+                  <span className="ml-auto hidden sm:inline">Drag across the chart</span>
+                </div>
+              </Card>
+
               {/* The odds and the histogram are one fact, not two: the shaded
                   share of those bars *is* the percentage beside them. Pairing
-                  them says so, and it buys back the whole card and heading the
-                  histogram used to cost, which is what kept pushing it under
-                  the fold on a laptop. */}
+                  them says so, and it costs one card instead of two. */}
               <Card
-                className={`grid items-center gap-x-6 gap-y-3 px-4 [--card-spacing:--spacing(4)] transition-opacity duration-200 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)] ${
+                className={`grid items-center gap-x-6 gap-y-3 px-4 [--card-spacing:--spacing(4)] transition-opacity duration-200 md:grid-cols-[minmax(0,14rem)_minmax(0,1fr)] ${
                   pending ? 'opacity-55' : ''
                 }`}
               >
@@ -408,7 +456,7 @@ function App() {
                   <span className="text-muted-foreground text-[0.8rem] tracking-[0.09em] uppercase">
                     Odds of reaching {money(data.target)}
                   </span>
-                  <strong className="font-mono text-[clamp(2.1rem,7vw,3rem)] leading-[1.05] font-semibold tracking-[-0.035em] tabular-nums">
+                  <strong className="font-mono text-[clamp(2rem,6vw,2.75rem)] leading-[1.05] font-semibold tracking-[-0.035em] tabular-nums">
                     {Math.round(odds)}%
                   </strong>
                   <span className="text-muted-foreground mt-1 flex flex-wrap items-center gap-1.5 text-[0.85rem]">
@@ -435,46 +483,6 @@ function App() {
                       </>
                     )}
                   </p>
-                </div>
-              </Card>
-
-              {/* The percentile readouts live inside this card rather than in a
-                  row of their own. They are tied to wherever the chart is
-                  scrubbed, so they belong next to it. */}
-              <Card className="gap-0 px-2.5 [--card-spacing:--spacing(2.5)]">
-                <FanChart
-                  rows={rows}
-                  paths={data.sample_paths}
-                  target={data.target}
-                  activeIndex={activeIndex}
-                  onScrub={setPinned}
-                />
-                <div className="text-muted-foreground flex flex-wrap items-center gap-x-3.5 gap-y-1.5 px-2 pt-2 text-[0.78rem] select-none">
-                  <Swatch line className="bg-(--median-line)">
-                    Median
-                  </Swatch>
-                  <Swatch className="bg-(--band-inner)">Middle 50%</Swatch>
-                  <Swatch className="bg-(--band-outer)">5th to 95th</Swatch>
-                  <Swatch line className="bg-(--path-line)">
-                    Sample runs
-                  </Swatch>
-                  <Swatch line className="bg-(--contributed-line)">
-                    You put in
-                  </Swatch>
-                  <span className="ml-auto">Drag across the chart</span>
-                </div>
-
-                <Separator className="mt-2.5" />
-
-                <div className="px-2 pt-2.5 pb-0.5">
-                  <span className="text-muted-foreground text-[0.68rem] tracking-[0.09em] uppercase">
-                    At age {active.age}
-                  </span>
-                  <div className="mt-1.5 grid grid-cols-3 gap-3">
-                    <Percentile note="5th" value={money(low)} />
-                    <Percentile note="median" value={money(median)} accent />
-                    <Percentile note="95th" value={money(high)} />
-                  </div>
                 </div>
               </Card>
             </>
