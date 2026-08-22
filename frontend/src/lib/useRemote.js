@@ -21,8 +21,22 @@ export function useRemote({ fetcher, payload, invalid = null, enabled = true }) 
   const [state, setState] = useState({ data: null, error: null, key: null })
   const seq = useRef(0)
 
+  // The key of the last request that came back successfully. `enabled` is part
+  // of the dependency list below, so flipping it — which is what switching
+  // modes does — re-runs the effect even when the params have not moved. Left
+  // to itself that refetches an answer already in hand, and the identical
+  // response still arrives as a new object, which the charts read as a new
+  // dataset and replay their whole draw-in for. On screen that is a stutter:
+  // the content appears from state, then animates in again a moment later.
+  //
+  // A ref rather than reading `state`, which would have to join the dependency
+  // list and loop. Only set once a response lands, so a failed request is
+  // still retried the next time this mode comes back into view.
+  const settled = useRef(null)
+
   useEffect(() => {
     if (!enabled || invalid) return
+    if (settled.current === key) return
 
     const controller = new AbortController()
     const id = ++seq.current
@@ -34,6 +48,7 @@ export function useRemote({ fetcher, payload, invalid = null, enabled = true }) 
     fetcher(JSON.parse(key), controller.signal)
       .then((data) => {
         if (id !== seq.current) return
+        settled.current = key
         setState({ data, error: null, key })
       })
       .catch((err) => {
