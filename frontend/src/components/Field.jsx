@@ -47,9 +47,16 @@ function pinCaretOnPress(event) {
   const field = event.currentTarget
   field.style.caretColor = 'transparent'
 
-  const release = () => settleCaret(field)
-  window.addEventListener('pointerup', release, { once: true })
-  window.addEventListener('pointercancel', release, { once: true })
+  // Each removes the other. `once` only retires the listener that actually
+  // fires, so registering both and walking away would leave the unused one
+  // attached to the window after every single press.
+  const release = () => {
+    window.removeEventListener('pointerup', release)
+    window.removeEventListener('pointercancel', release)
+    settleCaret(field)
+  }
+  window.addEventListener('pointerup', release)
+  window.addEventListener('pointercancel', release)
 }
 
 /**

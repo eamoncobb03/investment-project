@@ -114,6 +114,20 @@
 @layer components {
   /* The chart is bespoke SVG rather than a component library, so its paint
      rules live here. Everything it draws reads from the tokens above. */
+  /* Radix puts the pointer handling on the slider root, and the root sizes
+     itself to the 6px track: the 20px thumb is positioned over it and hangs
+     outside the box entirely, so a press a few pixels above or below the thumb
+     lands on the panel behind it rather than the control.
+     A minimum height on the root fixes the target for both, and `items-center`
+     keeps the track and thumb centred inside it. Scoped to coarse pointers, as
+     the desktop layout has a tighter vertical budget and a mouse does not need
+     the extra room. */
+  @media (pointer: coarse) {
+    [data-slot='slider'] {
+      min-block-size: 1.75rem;
+    }
+  }
+
   .chart {
     display: block;
     width: 100%;

@@ -15,7 +15,11 @@ export default function Hint({ children, label }) {
       <TooltipTrigger
         type="button"
         aria-label={label}
-        className="text-muted-foreground/70 hover:text-foreground focus-visible:ring-ring inline-flex size-4 shrink-0 items-center justify-center rounded-full align-middle transition-colors focus-visible:ring-2 focus-visible:outline-none"
+        // The icon stays 16px, but a 16px tap target is well under the 24px
+        // minimum and awkward to hit with a thumb. The ::after box widens the
+        // pressable area to 32px without taking up any more room in the
+        // layout, which a padded button would.
+        className="text-muted-foreground/70 hover:text-foreground focus-visible:ring-ring relative inline-flex size-4 shrink-0 items-center justify-center rounded-full align-middle transition-colors after:absolute after:-inset-2 after:content-[''] focus-visible:ring-2 focus-visible:outline-none"
       >
         <InfoIcon className="size-3.5" />
       </TooltipTrigger>

@@ -224,7 +224,10 @@ function App() {
       <header className="mb-5">
         <a
           href={SITE_URL}
-          className="text-muted-foreground hover:text-primary group mb-4 inline-flex items-center gap-1.5 text-sm transition-colors"
+          // Same trick as the hints: the ::after box lifts a 20px-tall link to
+          // a comfortable tap target without adding padding that would push
+          // the whole page down.
+          className="text-muted-foreground hover:text-primary group relative mb-4 inline-flex items-center gap-1.5 text-sm transition-colors after:absolute after:-inset-x-2 after:-inset-y-2.5 after:content-['']"
         >
           <ArrowLeftIcon className="size-3.5 transition-transform duration-300 group-hover:-translate-x-0.5" />
           Eamon Cobb
