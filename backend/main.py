@@ -7,12 +7,29 @@ import numpy as np
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 # 1. Initialize the FastAPI app
-app = FastAPI(title="Investment Planner API")
+_docs_enabled = os.getenv("ENABLE_API_DOCS", "false").lower() == "true"
+app = FastAPI(
+    title="Investment Planner API",
+    docs_url="/docs" if _docs_enabled else None,
+    redoc_url="/redoc" if _docs_enabled else None,
+    openapi_url="/openapi.json" if _docs_enabled else None,
+)
+
+# Reject forged Host headers before URL generation or future absolute redirects
+# ever have a chance to trust them. Preview deployments need the wildcard;
+# ALLOWED_HOSTS can replace this list for a stricter production deployment.
+_hosts = os.getenv(
+    "ALLOWED_HOSTS",
+    "localhost,127.0.0.1,*.vercel.app,eamoncobb.com,www.eamoncobb.com",
+)
+ALLOWED_HOSTS = [host.strip() for host in _hosts.split(",") if host.strip()]
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS)
 
 # 2. Only allow the browsers we actually serve to call this API.
 #    A wildcard origin combined with credentials makes Starlette echo back
@@ -31,6 +48,83 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 
+MAX_REQUEST_BYTES = 8 * 1024
+
+
+class RequestTooLarge(Exception):
+    pass
+
+
+class ApiRequestGuard:
+    """Enforce API media type and size even for chunked request bodies."""
+
+    def __init__(self, wrapped_app):
+        self.app = wrapped_app
+
+    async def __call__(self, scope, receive, send):
+        guarded = (
+            scope["type"] == "http"
+            and scope.get("method") == "POST"
+            and scope.get("path") in {"/calculate", "/simulate"}
+        )
+        if not guarded:
+            await self.app(scope, receive, send)
+            return
+
+        headers = {key.lower(): value for key, value in scope.get("headers", [])}
+        content_type = headers.get(b"content-type", b"").split(b";", 1)[0].strip().lower()
+        if content_type != b"application/json":
+            await JSONResponse(
+                {"detail": "Content-Type must be application/json"}, status_code=415
+            )(scope, receive, send)
+            return
+
+        raw_length = headers.get(b"content-length")
+        if raw_length:
+            try:
+                content_length = int(raw_length)
+            except ValueError:
+                await JSONResponse({"detail": "Invalid Content-Length"}, status_code=400)(
+                    scope, receive, send
+                )
+                return
+            if content_length > MAX_REQUEST_BYTES:
+                await JSONResponse({"detail": "Request body too large"}, status_code=413)(
+                    scope, receive, send
+                )
+                return
+
+        received = 0
+
+        async def limited_receive():
+            nonlocal received
+            message = await receive()
+            if message["type"] == "http.request":
+                received += len(message.get("body", b""))
+                if received > MAX_REQUEST_BYTES:
+                    raise RequestTooLarge
+            return message
+
+        try:
+            await self.app(scope, limited_receive, send)
+        except RequestTooLarge:
+            await JSONResponse({"detail": "Request body too large"}, status_code=413)(
+                scope, receive, send
+            )
+
+
+app.add_middleware(ApiRequestGuard)
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    return response
+
 # 3. Define and validate expected user inputs.
 #
 #    Every money field needs an upper bound as well as a lower one. Without
@@ -45,7 +139,11 @@ MAX_INITIAL = 1_000_000_000
 MAX_MONTHLY = 10_000_000
 
 
-class InvestmentQuery(BaseModel):
+class ApiPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class InvestmentQuery(ApiPayload):
     initial_amount: float = Field(
         ge=0, le=MAX_INITIAL, allow_inf_nan=False, description="Starting cash deposit"
     )
@@ -167,7 +265,7 @@ N_BINS = 36
 BAND_PERCENTILES = (5, 25, 50, 75, 95)
 
 
-class SimulationQuery(BaseModel):
+class SimulationQuery(ApiPayload):
     initial_amount: float = Field(ge=0, le=MAX_INITIAL, allow_inf_nan=False)
     monthly_contribution: float = Field(ge=0, le=MAX_MONTHLY, allow_inf_nan=False)
     annual_rate: float = Field(
