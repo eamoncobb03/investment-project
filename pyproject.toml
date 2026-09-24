@@ -7,7 +7,7 @@ dependencies = ["fastapi==0.141.1", "numpy==2.5.2"]
 # Only needed to run the API locally. Vercel supplies its own server, so
 # this stays out of the deployed dependencies.
 [project.optional-dependencies]
-dev = ["uvicorn==0.39.0"]
+dev = ["uvicorn==0.53.0"]
 
 [tool.vercel]
 # Vercel's zero-config FastAPI detection only looks at the project root or
