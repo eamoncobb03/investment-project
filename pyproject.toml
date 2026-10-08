@@ -2,7 +2,7 @@
 name = "investment-planner-api"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = ["fastapi==0.141.1", "numpy==2.5.2"]
+dependencies = ["fastapi==0.142.2", "numpy==2.5.2"]
 
 # Only needed to run the API locally. Vercel supplies its own server, so
 # this stays out of the deployed dependencies.
